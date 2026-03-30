@@ -313,15 +313,14 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-header">
-          <span class="stat-label">Body Language</span>
-          <span class="coming-soon">Soon</span>
-        </div>
-        <div class="stat-value" style="color:#222;">–</div>
-        <div class="mini-bar-track">
-          <div class="mini-bar-fill" style="width:0%;"></div>
-        </div>
-      </div>
+  <div class="stat-header">
+    <span class="stat-label">Body Language</span>
+  </div>
+  <div class="stat-value" id="bodyLanguage">–</div>
+  <div class="mini-bar-track">
+    <div class="mini-bar-fill" id="bodyBar"></div>
+  </div>
+</div>
 
     </div>
 
@@ -342,9 +341,11 @@
     const scores = analysis.scores;
 
     // Overall score
-    const overall = analysis.overall_score ||
-      Math.round(((scores.fluency + scores.clarity + scores.confidence +
-        scores.on_topic + scores.filler_words) / 5) * 10) / 10;
+    // 1. Update the overall calculation to include body_language
+const overall = analysis.overall_score ||
+  Math.round(((scores.fluency + scores.clarity + scores.confidence +
+    scores.on_topic + scores.filler_words + (scores.body_language || 5)) / 6) * 10) / 10;
+
 
     document.getElementById("overallScore").innerHTML =
       `${overall}<span>/10</span>`;
@@ -361,14 +362,15 @@
       return "low";
     }
 
-    // Set each score
-    const fields = [
-      { id: "fluency",    barId: "fluencyBar",    val: scores.fluency },
-      { id: "clarity",    barId: "clarityBar",    val: scores.clarity },
-      { id: "confidence", barId: "confidenceBar", val: scores.confidence },
-      { id: "topic",      barId: "topicBar",      val: scores.on_topic },
-      { id: "filler",     barId: "fillerBar",     val: scores.filler_words },
-    ];
+const fields = [
+  { id: "fluency",      barId: "fluencyBar",      val: scores.fluency },
+  { id: "clarity",      barId: "clarityBar",      val: scores.clarity },
+  { id: "confidence",   barId: "confidenceBar",   val: scores.confidence },
+  { id: "topic",        barId: "topicBar",        val: scores.on_topic },
+  { id: "filler",       barId: "fillerBar",       val: scores.filler_words },
+  // ADD THIS LINE:
+  { id: "bodyLanguage", barId: "bodyBar",         val: scores.body_language },
+];
 
     fields.forEach(({ id, barId, val }) => {
       const el  = document.getElementById(id);
