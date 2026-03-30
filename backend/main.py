@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
 import os
-import whisper
 import tempfile
 import shutil
 from fastapi import UploadFile, File
@@ -24,7 +23,6 @@ api_key = os.getenv("GROQ_API_KEY")
 print(f"GROQ_API_KEY loaded: {api_key[:10]}..." if api_key else "GROQ_API_KEY not found")
 
 client = Groq(api_key=api_key)
-whisper_model = whisper.load_model("base")
 
 app = FastAPI()
 
@@ -208,86 +206,79 @@ def save_settings(data: SettingsRequest):
 
 
 @app.post("/generate-topic")
+@app.post("/generate-topic")
 def generate_topic(data: VibeRequest):
     vibe = data.vibe
 
     vibe_prompts = {
-    "personal": (
-        "Generate a personal reflection speaking topic for a beginner speaker. "
-        "The topic must be based on a universal everyday experience anyone can relate to — "
-        "like a habit, a memory, a small moment that changed their thinking, or a personal value. "
-        "It should invite the speaker to share an opinion or feeling, not just describe facts. "
-        "Example style: 'Talk about a habit you wish you had started earlier — and why it matters to you.'"
-    ),
-    "motivation": (
-        "Generate a motivational speaking topic for a beginner speaker. "
-        "It should be grounded and real — not vague inspiration. "
-        "Focus on small, specific actions or mindset shifts rather than big abstract goals. "
-        "The speaker should be able to draw from their own life experience. "
-        "Example style: 'Talk about one small decision that changed the direction of your day — or your life.'"
-    ),
-    "tech": (
-        "Generate a technology opinion topic for a beginner speaker. "
-        "Pick something they use daily — social media, smartphones, AI tools, online learning — "
-        "and ask them to take a clear stance: is it helping or hurting us? "
-        "Avoid deeply technical topics. Keep it opinion-based and debatable. "
-        "Example style: 'Do you think social media makes us more lonely or more connected? Make your case.'"
-    ),
-    "entertainment": (
-        "Generate an entertainment speaking topic for a beginner speaker. "
-        "It should be about something they likely watch, listen to, or enjoy — "
-        "movies, music, sports, shows, gaming. Ask them to defend a preference or share a reaction. "
-        "Example style: 'Talk about a movie or show that changed how you see the world — and why it stuck with you.'"
-    ),
-    "travel": (
-        "Generate a travel or experience speaking topic for a beginner speaker. "
-        "It doesn't have to involve actual travel — it can be about exploring a new food, "
-        "visiting a new place in their own city, or stepping outside their comfort zone. "
-        "Focus on what they learned or felt. "
-        "Example style: 'Describe a place you visited that surprised you — what did you expect vs what you found?'"
-    ),
-    "surprise": (
-        "Generate a fun, unexpected speaking topic that a beginner speaker would find easy and enjoyable. "
-        "Make it slightly unusual but totally approachable — "
-        "a hypothetical scenario, a quirky opinion, or a playful what-if question. "
-        "It should make the speaker smile and think at the same time. "
-        "Example style: 'If you could add one subject to your school curriculum, what would it be and why?'"
-    ),
-}
+        "personal": (
+            "Generate a personal reflection speaking topic for a beginner speaker. "
+            "The topic must be based on a universal everyday experience anyone can relate to — "
+            "like a habit, a memory, a small moment that changed their thinking, or a personal value. "
+            "It should invite the speaker to share an opinion or feeling, not just describe facts. "
+            "Example style: 'Talk about a habit you wish you had started earlier — and why it matters to you.'"
+        ),
+        "motivation": (
+            "Generate a motivational speaking topic for a beginner speaker. "
+            "It should be grounded and real — not vague inspiration. "
+            "Focus on small, specific actions or mindset shifts rather than big abstract goals. "
+            "Example style: 'Talk about one small decision that changed the direction of your day — or your life.'"
+        ),
+        "tech": (
+            "Generate a technology opinion topic for a beginner speaker. "
+            "Pick something they use daily — social media, smartphones, AI tools, online learning — "
+            "and ask them to take a clear stance: is it helping or hurting us? "
+            "Example style: 'Do you think social media makes us more lonely or more connected? Make your case.'"
+        ),
+        "entertainment": (
+            "Generate an entertainment speaking topic for a beginner speaker. "
+            "It should be about something they likely watch, listen to, or enjoy. "
+            "Example style: 'Talk about a movie or show that changed how you see the world — and why it stuck with you.'"
+        ),
+        "travel": (
+            "Generate a travel or experience speaking topic for a beginner speaker. "
+            "It doesn't have to involve actual travel — exploring a new food or place in their city works too. "
+            "Example style: 'Describe a place you visited that surprised you — what did you expect vs what you found?'"
+        ),
+        "surprise": (
+            "Generate a fun, unexpected speaking topic that a beginner speaker would find easy and enjoyable. "
+            "Make it slightly unusual but totally approachable — a hypothetical scenario or playful what-if. "
+            "Example style: 'If you could add one subject to your school curriculum, what would it be and why?'"
+        ),
+    }
 
-# Also upgrade the base prompt that wraps these:
-    BASE_PROMPT_TEMPLATE = """
+    base_instruction = vibe_prompts.get(vibe.lower(), "Generate a fun speaking topic for a beginner.")
+
+    prompt = f"""
 You are a speech coach helping beginner speakers practice.
 
 Your job is to generate ONE speaking topic based on this instruction:
 {base_instruction}
 
-Requirements for the topic:
-- It must be a single clear question or prompt — not a statement
-- It must be answerable from personal experience (no research needed)
-- It must be 1–2 sentences maximum
-- It must end in a way that invites the speaker to share their opinion or story
+Requirements:
+- Single clear question or prompt
+- Answerable from personal experience (no research needed)
+- 1-2 sentences maximum
+- Ends in a way that invites opinion or story
 - No numbering, no explanation, no preamble — just the topic itself
 
 Generate the topic now:
 """
 
-
     completion = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[
-            {"role": "system", "content": "You help users practice speaking."},
+            {"role": "system", "content": "You generate speaking practice topics for beginner speakers."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.8,
-        max_tokens=60,
+        temperature=0.9,
+        max_tokens=80,
     )
 
     topic = completion.choices[0].message.content.strip()
+    return {"topic": topic}
 
-    return {
-        "topic": topic
-    }
+import subprocess
 
 @app.post("/transcribe")
 async def transcribe_video(file: UploadFile = File(...)):
@@ -295,10 +286,28 @@ async def transcribe_video(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, temp_video)
         video_path = temp_video.name
 
-    result = whisper_model.transcribe(video_path)
-    transcript = result["text"]
+    # Extract audio only (much smaller than video)
+    audio_path = video_path.replace(".mp4", ".mp3")
+    subprocess.run([
+        "ffmpeg", "-i", video_path,
+        "-q:a", "0", "-map", "a",
+        audio_path, "-y"
+    ], check=True)
+
+    with open(audio_path, "rb") as audio_file:
+        transcription = client.audio.transcriptions.create(
+            model="whisper-large-v3-turbo",
+            file=audio_file,
+            response_format="text"
+        )
+
+    os.unlink(video_path)
+    os.unlink(audio_path)
+
+    transcript = transcription
     print(f"DEBUG: Transcript is: {transcript}")
     return {"transcript": transcript}
+
 
 
 class AnalysisRequest(BaseModel):
