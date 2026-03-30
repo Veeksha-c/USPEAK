@@ -4,81 +4,291 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>uSpeak – Report</title>
-
-  <!-- Tailwind CDN -->
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e63946;
+      --green: #22c55e;
+      --text: #ffffff;
+      --muted: #555555;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 560px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 2rem 1.5rem 3rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+    .logo .u { color: var(--accent); }
+
+    .page-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      letter-spacing: -0.03em;
+      margin: 2rem 0 0.4rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.1s forwards;
+    }
+
+    .page-subtitle {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 300;
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.2s forwards;
+    }
+
+    /* Tip card */
+    .tip-card {
+      background: rgba(230,57,70,0.05);
+      border: 1px solid rgba(230,57,70,0.15);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.25s forwards;
+    }
+
+    .tip-icon {
+      font-size: 0.9rem;
+      margin-top: 1px;
+      flex-shrink: 0;
+    }
+
+    .tip-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .tip-text {
+      font-size: 0.85rem;
+      color: #bbb;
+      line-height: 1.5;
+      font-weight: 300;
+    }
+
+    /* Section cards */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      opacity: 0;
+    }
+
+    .section-card.pros { animation: riseIn 0.5s ease 0.3s forwards; }
+    .section-card.cons { animation: riseIn 0.5s ease 0.4s forwards; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .section-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .section-dot.green { background: var(--green); }
+    .section-dot.red   { background: var(--accent); }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* Feedback items */
+    .feedback-item {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .feedback-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .feedback-item:first-child { padding-top: 0; }
+
+    .feedback-bullet {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      margin-top: 7px;
+      flex-shrink: 0;
+    }
+
+    .feedback-bullet.green { background: var(--green); }
+    .feedback-bullet.red   { background: var(--accent); }
+
+    .feedback-text {
+      font-size: 0.875rem;
+      color: #ccc;
+      line-height: 1.55;
+      font-weight: 400;
+    }
+
+    /* Next button */
+    .btn-primary {
+      width: 100%;
+      padding: 1rem;
+      background: var(--accent);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      margin-top: 1rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.5s forwards;
+    }
+
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 
-<body class="min-h-screen flex items-center justify-center bg-black text-white">
-
-  <!-- PHONE CONTAINER -->
-  <div class="w-[390px] h-[844px] px-6 py-8 flex flex-col">
+<body>
+  <div class="page-wrap">
 
     <!-- HEADER -->
-    <div class="mb-8">
-      <div class="text-xl font-bold tracking-wide">
-        <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
+    <div class="logo"><span class="u">U</span><span style="color:#fff">SPEAK</span></div>
+
+    <!-- TITLE -->
+    <h1 class="page-title">Your Report.</h1>
+    <p class="page-subtitle">Here's what we found from your session</p>
+
+    <!-- IMPROVEMENT TIP -->
+    <div class="tip-card" id="tipCard" style="display:none;">
+      <div class="tip-icon">💡</div>
+      <div>
+        <div class="tip-label">Coach's Tip</div>
+        <p class="tip-text" id="tipText"></p>
       </div>
     </div>
 
-    <!-- TITLE -->
-    <h1 class="text-center text-2xl font-extrabold mb-8">
-      REPORT
-    </h1>
-
-    <!-- PROS / POSITIVE FEEDBACK -->
-    <div class="bg-[#1a1f22] rounded-2xl p-6 mb-6 flex-1">
-  <h2 class="text-xl font-bold mb-4">PROS</h2>
-  <ul id="prosList" class="list-disc list-inside space-y-3 text-gray-200"></ul>
-</div>
-
-<div class="bg-[#1a1f22] rounded-2xl p-6 flex-1">
-  <h2 class="text-xl font-bold mb-4">CONS</h2>
-  <ul id="consList" class="list-disc list-inside space-y-3 text-gray-200"></ul>
-</div>
-
-    <!-- NEXT BUTTON -->
-    <div class="mt-8">
-      <button
-        class="w-full bg-[#1a1f22] py-3 rounded-full text-lg font-semibold"
-        onclick="window.location.href='./stats.html'"
-      >
-        NEXT
-      </button>
+    <!-- PROS -->
+    <div class="section-card pros">
+      <div class="section-header">
+        <div class="section-dot green"></div>
+        <span class="section-title">What you did well</span>
+      </div>
+      <div id="prosList"></div>
     </div>
+
+    <!-- CONS -->
+    <div class="section-card cons">
+      <div class="section-header">
+        <div class="section-dot red"></div>
+        <span class="section-title">Areas to improve</span>
+      </div>
+      <div id="consList"></div>
+    </div>
+
+    <!-- NEXT -->
+    <button class="btn-primary" onclick="window.location.href='./stats.html'">
+      View Scores →
+    </button>
 
   </div>
 
+  <script>
+    const rawAnalysis = localStorage.getItem("analysis");
+
+    if (!rawAnalysis) {
+      alert("No analysis found. Please record again.");
+      window.location.href = "./vibe.html";
+    }
+
+    const analysis = JSON.parse(rawAnalysis);
+
+    // Improvement tip
+    if (analysis.improvement_tip) {
+      document.getElementById("tipText").textContent = analysis.improvement_tip;
+      document.getElementById("tipCard").style.display = "flex";
+    }
+
+    // Pros
+    const prosList = document.getElementById("prosList");
+    (analysis.pros || []).forEach(p => {
+      const div = document.createElement("div");
+      div.className = "feedback-item";
+      div.innerHTML = `
+        <div class="feedback-bullet green"></div>
+        <p class="feedback-text">${p}</p>
+      `;
+      prosList.appendChild(div);
+    });
+
+    // Cons
+    const consList = document.getElementById("consList");
+    (analysis.cons || []).forEach(c => {
+      const div = document.createElement("div");
+      div.className = "feedback-item";
+      div.innerHTML = `
+        <div class="feedback-bullet red"></div>
+        <p class="feedback-text">${c}</p>
+      `;
+      consList.appendChild(div);
+    });
+  </script>
 </body>
-<script>
-  const rawAnalysis = localStorage.getItem("analysis");
-
-  if (!rawAnalysis) {
-    alert("No analysis found. Please record again.");
-    window.location.href = "./vibe.html";
-  }
-
-  const analysis = JSON.parse(rawAnalysis);
-
-  const prosList = document.getElementById("prosList");
-  const consList = document.getElementById("consList");
-
-  // Clear lists (safety)
-  prosList.innerHTML = "";
-  consList.innerHTML = "";
-
-  analysis.pros.forEach(p => {
-    const li = document.createElement("li");
-    li.textContent = p;
-    prosList.appendChild(li);
-  });
-
-  analysis.cons.forEach(c => {
-    const li = document.createElement("li");
-    li.textContent = c;
-    consList.appendChild(li);
-  });
-
-</script>
-
 </html>

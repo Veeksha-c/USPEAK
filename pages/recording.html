@@ -4,241 +4,445 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>uSpeak – Recording</title>
-  <!-- Tailwind CDN -->
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e63946;
+      --text: #ffffff;
+      --muted: #555555;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── VIDEO FILLS ENTIRE SCREEN ── */
+    #video {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    /* Dark gradient overlays for readability */
+    .overlay-top {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 180px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .overlay-bottom {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 260px;
+      background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 100%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* ── TOP BAR ── */
+    .top-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 10;
+      padding: 1.5rem 1.75rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+      letter-spacing: -0.01em;
+    }
+    .logo .u { color: var(--accent); }
+
+    /* Topic pill */
+    .topic-pill {
+      max-width: 260px;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 0.5rem 0.875rem;
+      text-align: right;
+    }
+
+    .topic-pill .label {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 2px;
+    }
+
+    .topic-pill .text {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.4;
+      font-weight: 400;
+    }
+
+    /* ── RECORDING BADGE ── */
+    .rec-badge {
+      position: fixed;
+      top: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(230,57,70,0.3);
+      border-radius: 999px;
+      padding: 0.4rem 1rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .rec-badge.visible { display: flex; }
+
+    .rec-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.2s ease infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* ── BOTTOM CONTROLS ── */
+    .bottom-controls {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 10;
+      padding: 1.5rem 1.75rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    /* Timer */
+    .timer-display {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.9rem;
+      letter-spacing: 0.15em;
+      color: rgba(255,255,255,0.4);
+      font-weight: 700;
+    }
+
+    /* Record button — big circle */
+    .record-btn-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .record-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 2.5px solid rgba(255,255,255,0.15);
+      background: rgba(230,57,70,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .record-btn:hover {
+      border-color: var(--accent);
+      background: rgba(230,57,70,0.25);
+      transform: scale(1.05);
+    }
+
+    .record-btn.recording {
+      background: var(--accent);
+      border-color: var(--accent);
+      animation: recordPulse 2s ease infinite;
+    }
+
+    @keyframes recordPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(230,57,70,0.4); }
+      50% { box-shadow: 0 0 0 14px rgba(230,57,70,0); }
+    }
+
+    .record-btn-inner {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      transition: border-radius 0.2s ease, width 0.2s ease, height 0.2s ease;
+    }
+
+    .record-btn.recording .record-btn-inner {
+      border-radius: 5px;
+      width: 22px;
+      height: 22px;
+      background: #fff;
+    }
+
+    .btn-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-top: 0.4rem;
+      text-align: center;
+    }
+
+    /* Next button */
+    .next-btn {
+      display: none;
+      width: 100%;
+      max-width: 320px;
+      padding: 0.9rem;
+      background: var(--accent);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+
+    .next-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .next-btn.visible { display: block; }
+
+    /* Spinner */
+    .spinner-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .spinner-wrap.visible { display: flex; }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .spinner-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.3);
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
-<body class="min-h-screen flex items-center justify-center bg-black text-white">
-  <!-- PHONE CONTAINER -->
-  <div class="w-[390px] h-[844px] flex flex-col justify-between px-5 py-6">
-  <div class="mb-4 bg-[#1a1f22] rounded-xl px-4 py-3 text-sm">
-  <p class="opacity-70 mb-1">Your topic</p>
-  <p id="recordTopic" class="font-semibold"></p>
-</div>
-    <!-- VIDEO PREVIEW -->
-    <div class="flex-1 rounded-3xl overflow-hidden bg-black relative">
-      <video id="video"
-        autoplay
-        muted
-        playsinline
-        class="w-full h-full object-cover"
-      ></video>
-<!-- RECORDING STATUS -->
-<div id="recordingStatus" class="hidden absolute top-4 left-4 right-4 flex items-center justify-between text-sm">
 
-        <div class="flex items-center gap-2">
+<body>
 
-          <span class="w-3 h-3 rounded-full bg-red-600 animate-pulse"></span>
+  <!-- FULLSCREEN VIDEO -->
+  <video id="video" autoplay muted playsinline></video>
 
-          <span>Recording</span>
+  <!-- GRADIENT OVERLAYS -->
+  <div class="overlay-top"></div>
+  <div class="overlay-bottom"></div>
 
-        </div>
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="logo"><span class="u">U</span><span style="color:#fff;">SPEAK</span></div>
+    <div class="topic-pill">
+      <div class="label">Topic</div>
+      <div class="text" id="recordTopic">Loading...</div>
+    </div>
+  </div>
 
-        <span id="timer">00:00</span>
+  <!-- REC BADGE (center top) -->
+  <div class="rec-badge" id="recBadge">
+    <div class="rec-dot"></div>
+    <span>REC</span>
+    <span id="timer" style="color:rgba(255,255,255,0.5); margin-left:4px;">00:00</span>
+  </div>
 
+  <!-- BOTTOM CONTROLS -->
+  <div class="bottom-controls">
+
+    <!-- Spinner (while processing) -->
+    <div class="spinner-wrap" id="loadingSpinner">
+      <div class="spinner"></div>
+      <p class="spinner-label">Analyzing your speech...</p>
+    </div>
+
+    <!-- Next button (after analysis) -->
+    <button class="next-btn" id="nextBtn">
+      View Results →
+    </button>
+
+    <!-- Record button -->
+    <div>
+      <div class="record-btn-wrap">
+        <button class="record-btn" id="recordBtn">
+          <div class="record-btn-inner"></div>
+        </button>
       </div>
-
+      <p class="btn-label" id="btnLabel">Tap to record</p>
     </div>
-
-
-
-    <!-- ACTIONS -->
-
-    <div class="mt-6">
-
-      <!-- RECORD BUTTON -->
-
-      <button
-
-        id="recordBtn"
-
-        class="w-full bg-[#1a1f22] py-4 rounded-full text-red-600 font-semibold tracking-wide"
-
-      >
-
-        TAP IN
-
-      </button>
-
-
-
-      <!-- NEXT BUTTON -->
-
-      <button
-
-        id="nextBtn"
-
-        class="hidden w-full mt-4 bg-[#1a1f22] py-3 rounded-full text-white"
-
-      >
-
-        NEXT →
-
-      </button>
-
-    </div>
-
-
 
   </div>
 
-
-
-  <!-- SCRIPT -->
-
   <script>
-  const video = document.getElementById("video");
-  const recordBtn = document.getElementById("recordBtn");
-  const nextBtn = document.getElementById("nextBtn");
-  const recordingStatus = document.getElementById("recordingStatus");
-  const timerEl = document.getElementById("timer");
+    const video       = document.getElementById("video");
+    const recordBtn   = document.getElementById("recordBtn");
+    const nextBtn     = document.getElementById("nextBtn");
+    const recBadge    = document.getElementById("recBadge");
+    const timerEl     = document.getElementById("timer");
+    const btnLabel    = document.getElementById("btnLabel");
+    const spinner     = document.getElementById("loadingSpinner");
 
-  const topic = localStorage.getItem("generatedTopic");
-  if (topic) {
-    document.getElementById("recordTopic").innerText = topic;
-  }
+    // Load topic
+    const topic = localStorage.getItem("generatedTopic");
+    if (topic) document.getElementById("recordTopic").innerText = topic;
 
-  let mediaRecorder;
-  let recordedChunks = [];
-  let isRecording = false;
-  let stream;
-  let timerInterval;
-  let seconds = 0;
+    let mediaRecorder, recordedChunks = [], isRecording = false;
+    let stream, timerInterval, seconds = 0;
 
-  // 🎥 Start camera preview
-  async function startCamera() {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-      video.srcObject = stream;
-    } catch (err) {
-      alert("Camera or microphone access denied");
-    }
-  }
-
-  startCamera();
-
-  // 🎙 Record button
-  recordBtn.addEventListener("click", () => {
-    if (!isRecording) {
-      startRecording();
-    } else {
-      stopRecording();
-    }
-  });
-
-  function startRecording() {
-    // Clear previous data
-    localStorage.removeItem("analysis");
-    localStorage.removeItem("transcript");
-
-    recordedChunks = [];
-    seconds = 0;
-    timerEl.textContent = "00:00";
-
-    mediaRecorder = new MediaRecorder(stream);
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) recordedChunks.push(e.data);
-    };
-
-    // 🔥 Attach onstop BEFORE stopping
-    mediaRecorder.onstop = handleRecordingStop;
-
-    mediaRecorder.start();
-    isRecording = true;
-
-    // UI updates
-    recordBtn.textContent = "STOP";
-    recordBtn.classList.add("bg-red-600", "text-white");
-    recordingStatus.classList.remove("hidden");
-    nextBtn.classList.add("hidden");
-
-    // ⏱ Timer + auto-stop
-    const sessionLength = parseInt(localStorage.getItem("sessionLength") || "2");
-    const maxSeconds = sessionLength * 60;
-
-    timerInterval = setInterval(() => {
-      seconds++;
-
-      const m = String(Math.floor(seconds / 60)).padStart(2, "0");
-      const s = String(seconds % 60).padStart(2, "0");
-      timerEl.textContent = `${m}:${s}`;
-
-      if (seconds >= maxSeconds) {
-        stopRecording();
+    // Start camera
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("Camera or microphone access denied.");
       }
-    }, 1000);
-  }
+    }
+    startCamera();
 
-  function stopRecording() {
-    // 🛑 Guard against double stop
-    if (!isRecording) return;
-
-    isRecording = false;
-    clearInterval(timerInterval);
-
-    mediaRecorder.stop();
-
-    // UI updates
-    recordBtn.textContent = "TAP IN";
-    recordBtn.classList.remove("bg-red-600", "text-white");
-    recordingStatus.classList.add("hidden");
-  }
-
-  // 📤 Upload + analyze after stop
-  async function handleRecordingStop() {
-    const blob = new Blob(recordedChunks, { type: "video/webm" });
-
-    const formData = new FormData();
-    formData.append("file", blob, "recording.webm");
-
-    // 🔹 Transcribe
-    const res = await fetch("http://127.0.0.1:8000/transcribe", {
-      method: "POST",
-      body: formData
-    });
-    const data = await res.json();
-    localStorage.setItem("transcript", data.transcript);
-
-    // 🔹 Analyze
-    const analysisRes = await fetch("http://127.0.0.1:8000/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transcript: data.transcript })
-    });
-    const analysis = await analysisRes.json();
-    localStorage.setItem("analysis", JSON.stringify(analysis));
-
-    // 🔹 Save session for graph & streak
-    const sessions = JSON.parse(localStorage.getItem("sessions")) || [];
-    const scores = analysis.scores;
-
-    const avgScore = (
-      scores.fluency +
-      scores.clarity +
-      scores.confidence +
-      scores.on_topic +
-      scores.body_language+
-      (10 - scores.filler_words)
-    ) / 6;
-
-    sessions.push({
-      date: new Date().toISOString().split("T")[0],
-      avgScore: Math.round(avgScore * 10) / 10
+    // Toggle recording
+    recordBtn.addEventListener("click", () => {
+      if (!isRecording) startRecording();
+      else stopRecording();
     });
 
-    localStorage.setItem("sessions", JSON.stringify(sessions.slice(-10)));
+    function startRecording() {
+      localStorage.removeItem("analysis");
+      localStorage.removeItem("transcript");
+      recordedChunks = [];
+      seconds = 0;
+      timerEl.textContent = "00:00";
 
-    // 🔥 Show NEXT only after everything completes
-    nextBtn.classList.remove("hidden");
-  }
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = handleRecordingStop;
+      mediaRecorder.start();
+      isRecording = true;
 
-  // ➡️ Go to report page
-  nextBtn.addEventListener("click", () => {
-    window.location.href = "./report.html";
-  });
-</script>
-  </body>
+      // UI
+      recordBtn.classList.add("recording");
+      recBadge.classList.add("visible");
+      nextBtn.classList.remove("visible");
+      btnLabel.textContent = "Tap to stop";
+
+      const maxSeconds = parseInt(localStorage.getItem("sessionLength") || "2") * 60;
+      timerInterval = setInterval(() => {
+        seconds++;
+        const m = String(Math.floor(seconds / 60)).padStart(2, "0");
+        const s = String(seconds % 60).padStart(2, "0");
+        timerEl.textContent = `${m}:${s}`;
+        if (seconds >= maxSeconds) stopRecording();
+      }, 1000);
+    }
+
+    function stopRecording() {
+      if (!isRecording) return;
+      isRecording = false;
+      clearInterval(timerInterval);
+      mediaRecorder.stop();
+
+      recordBtn.classList.remove("recording");
+      recBadge.classList.remove("visible");
+      btnLabel.textContent = "Tap to record";
+    }
+
+    async function handleRecordingStop() {
+      spinner.classList.add("visible");
+      recordBtn.disabled = true;
+      btnLabel.textContent = "";
+
+      try {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const formData = new FormData();
+        formData.append("file", blob, "recording.webm");
+
+        const res = await fetch("http://127.0.0.1:8000/transcribe", { method: "POST", body: formData });
+        const data = await res.json();
+        localStorage.setItem("transcript", data.transcript);
+
+        const analysisRes = await fetch("http://127.0.0.1:8000/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript: data.transcript })
+        });
+        const analysis = await analysisRes.json();
+        localStorage.setItem("analysis", JSON.stringify(analysis));
+
+        // Save session
+        const sessions = JSON.parse(localStorage.getItem("sessions")) || [];
+        const sc = analysis.scores;
+        const avg = (
+          (sc.fluency || 5) + (sc.clarity || 5) +
+          (sc.confidence || 5) + (sc.on_topic || 5) +
+          (10 - (sc.filler_words || 5))
+        ) / 5;
+        sessions.push({
+          date: new Date().toISOString().split("T")[0],
+          avgScore: isNaN(avg) ? 5 : Math.round(avg * 10) / 10
+        });
+        localStorage.setItem("sessions", JSON.stringify(sessions.slice(-10)));
+
+      } catch (err) {
+        console.error("Processing failed:", err);
+      } finally {
+        spinner.classList.remove("visible");
+        recordBtn.disabled = false;
+        btnLabel.textContent = "Record again";
+        nextBtn.classList.add("visible");
+      }
+    }
+
+    nextBtn.addEventListener("click", () => {
+      window.location.href = "./report.html";
+    });
+  </script>
+</body>
 </html>

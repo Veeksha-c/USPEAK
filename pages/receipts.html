@@ -4,165 +4,349 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>uSpeak – The Receipts</title>
-
-  <!-- Tailwind CDN -->
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Chart.js for line graph -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-  .streak-box::after {
-    content: attr(data-date);
-    position: absolute;
-    bottom: 130%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #660708;
-    color: white;
-    font-size: 10px;
-    padding: 4px 6px;
-    border-radius: 6px;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-  }
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e63946;
+      --text: #ffffff;
+      --muted: #555555;
+    }
 
-  .streak-box:hover::after {
-    opacity: 1;
-  }
-</style>
+    * { box-sizing: border-box; }
 
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 600px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 2rem 1.5rem 3rem;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+    .logo .u { color: var(--accent); }
+
+    .page-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      letter-spacing: -0.03em;
+      margin: 2rem 0 0.4rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.1s forwards;
+    }
+
+    .page-subtitle {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 300;
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.2s forwards;
+    }
+
+    .graph-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.25s forwards;
+    }
+
+    .graph-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .graph-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .graph-count {
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 2px 10px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 300;
+    }
+
+    .streak-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.35s forwards;
+    }
+
+    .streak-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .streak-count-badge {
+      font-size: 0.75rem;
+      color: var(--accent);
+      background: rgba(230,57,70,0.08);
+      border: 1px solid rgba(230,57,70,0.15);
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-weight: 500;
+    }
+
+    .month-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .day-labels {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+
+    .day-label {
+      text-align: center;
+      font-size: 0.6rem;
+      color: #333;
+      letter-spacing: 0.05em;
+    }
+
+    .streak-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .streak-box {
+      aspect-ratio: 1;
+      border-radius: 5px;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.1s ease;
+    }
+
+    .streak-box:hover { transform: scale(1.15); }
+
+    .streak-box.attended {
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(230,57,70,0.3);
+    }
+
+    .streak-box.missed {
+      background: #1a1a1a;
+      border: 1px solid #1f1f1f;
+    }
+
+    .streak-box.today {
+      border: 1px solid rgba(230,57,70,0.5) !important;
+    }
+
+    .streak-box::after {
+      content: attr(data-date);
+      position: absolute;
+      bottom: 130%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      color: #ccc;
+      font-size: 9px;
+      padding: 3px 6px;
+      border-radius: 5px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      z-index: 10;
+    }
+
+    .streak-box:hover::after { opacity: 1; }
+
+    .btn-primary {
+      width: 100%;
+      padding: 1rem;
+      background: var(--accent);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.45s forwards;
+    }
+
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 
-<body class="min-h-screen flex items-center justify-center bg-black text-white">
+<body>
+  <div class="page-wrap">
 
-  <!-- PHONE CONTAINER -->
-  <div class="w-[390px] h-[844px] px-6 py-8 flex flex-col">
+    <div class="logo"><span class="u">U</span><span style="color:#fff">SPEAK</span></div>
 
-    <!-- HEADER -->
-    <div class="mb-6">
-      <div class="text-xl font-bold tracking-wide">
-        <span class="text-[#660708]">U</span><span class="text-[#161A1D]">SPEAK</span>
+    <h1 class="page-title">The Receipts.</h1>
+    <p class="page-subtitle">Your progress over time</p>
+
+    <!-- GRAPH -->
+    <div class="graph-card">
+      <div class="graph-header">
+        <span class="graph-title">Progress Chart</span>
+        <span class="graph-count" id="sessionCount">0 sessions</span>
       </div>
+      <div id="emptyGraph" class="empty-state" style="display:none;">
+        No sessions yet — record your first one!
+      </div>
+      <canvas id="progressChart" height="140"></canvas>
     </div>
 
-    <!-- TITLE -->
-    <h1 class="text-center text-2xl font-extrabold mb-6">
-      The Receipts
-    </h1>
-
-    <!-- GRAPH CARD -->
-    <div class="bg-[#1a1f22] rounded-2xl p-4 mb-6">
-      <p class="text-center font-bold mb-4">
-        GRAPH FROM PAST<br />10 VIDEOS
-      </p>
-
-      <canvas id="progressChart" height="160"></canvas>
+    <!-- STREAK -->
+    <div class="streak-card">
+      <div class="streak-header">
+        <span class="graph-title">Monthly Streak</span>
+        <span class="streak-count-badge" id="streakBadge">0 days</span>
+      </div>
+      <p class="month-label" id="monthLabel"></p>
+      <div class="day-labels">
+        <div class="day-label">S</div><div class="day-label">M</div>
+        <div class="day-label">T</div><div class="day-label">W</div>
+        <div class="day-label">T</div><div class="day-label">F</div>
+        <div class="day-label">S</div>
+      </div>
+      <div class="streak-grid" id="streakGrid"></div>
     </div>
 
-    <!-- STREAK SECTION -->
-    <div class="flex-1">
-      <p class="text-center font-bold mb-4">
-        STREAK
-      </p>
-
-      <!-- CALENDAR GRID -->
-      <div
-  id="streakGrid"
-  class="grid grid-cols-7 gap-3 justify-items-center"
-></div>
-
-
-    <!-- GO AGAIN -->
-    <div class="mt-6">
-      <button
-        class="w-full bg-[#1a1f22] py-3 rounded-full text-[#660708] font-semibold"
-        onclick="window.location.href='./vibe.html'"
-      >
-        Go Again
-      </button>
-    </div>
+    <button class="btn-primary" onclick="window.location.href='./vibe.html'">
+      Go Again →
+    </button>
 
   </div>
 
-  <!-- GRAPH SCRIPT -->
   <script>
-  const sessions = JSON.parse(localStorage.getItem("sessions")) || [];
+    const sessions = JSON.parse(localStorage.getItem("sessions")) || [];
 
-  const labels = sessions.map((_, i) => `Session ${i + 1}`);
-  const scores = sessions.map(s => s.avgScore);
+    document.getElementById("sessionCount").textContent =
+      `${sessions.length} session${sessions.length !== 1 ? "s" : ""}`;
 
-  const ctx = document.getElementById("progressChart");
-
-  new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        data: scores,
-        borderColor: "#660708",
-        pointBackgroundColor: "#660708",
-        tension: 0.4,
-        fill: false
-      }]
-    },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { min: 0, max: 10 }
-      }
-    }
-  });
-  const streakGrid = document.getElementById("streakGrid");
-
-  const attendedDates = sessions.map(s => s.date);
-
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-
-    const box = document.createElement("div");
-box.className = "streak-box w-6 h-6 rounded relative cursor-pointer";
-box.setAttribute("data-date", dateStr);
-
-
-    if (attendedDates.includes(dateStr)) {
-      box.classList.add("bg-black"); // attended
+    // Graph
+    const ctx = document.getElementById("progressChart");
+    if (sessions.length === 0) {
+      ctx.style.display = "none";
+      document.getElementById("emptyGraph").style.display = "block";
     } else {
-      box.classList.add("bg-[#1a1f22]"); // missed
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: sessions.map((_, i) => `S${i + 1}`),
+          datasets: [{
+            data: sessions.map(s => s.avgScore),
+            borderColor: "#e63946",
+            pointBackgroundColor: "#e63946",
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            tension: 0.4,
+            fill: false,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: "#444", font: { size: 11 } }, grid: { color: "#161616" } },
+            y: { min: 0, max: 10, ticks: { color: "#444", stepSize: 2, font: { size: 11 } }, grid: { color: "#161616" } }
+          }
+        }
+      });
     }
 
-    streakGrid.appendChild(box);
-  } 
-  if (sessions.length > 0) {
-  new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        data: scores,
-        borderColor: "#660708",
-        pointBackgroundColor: "#660708",
-        tension: 0.4,
-        fill: false
-      }]
-    },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { min: 0, max: 10 }
-      }
-    }
-  });
-}
+    // Streak
+    const attendedDates = sessions.map(s => s.date);
+    const uniqueDays = [...new Set(attendedDates)].length;
+    document.getElementById("streakBadge").textContent = `${uniqueDays} day${uniqueDays !== 1 ? "s" : ""}`;
 
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const todayStr = today.toISOString().split("T")[0];
+    const monthNames = ["January","February","March","April","May","June",
+                        "July","August","September","October","November","December"];
+    document.getElementById("monthLabel").textContent = `${monthNames[month]} ${year}`;
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOfWeek = new Date(year, month, 1).getDay();
+    const grid = document.getElementById("streakGrid");
+
+    // Padding before first day
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      grid.appendChild(document.createElement("div"));
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+      const box = document.createElement("div");
+      box.className = "streak-box " + (attendedDates.includes(dateStr) ? "attended" : "missed");
+      if (dateStr === todayStr) box.classList.add("today");
+      box.setAttribute("data-date", dateStr);
+      grid.appendChild(box);
+    }
   </script>
-
 </body>
 </html>

@@ -4,46 +4,145 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>uSpeak</title>
-
-  <!-- Tailwind CDN -->
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-
   <style>
-    .logo-animate {
-      animation: fadeScale 1.2s ease-out forwards;
+    :root {
+      --bg: #0a0a0a;
+      --accent: #e63946;
+      --text: #ffffff;
+      --muted: #333333;
     }
 
-    @keyframes fadeScale {
-      from {
-        opacity: 0;
-        transform: scale(0.92);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1);
-      }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Subtle noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Radial glow behind logo */
+    .glow {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(230,57,70,0.08) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .splash-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      z-index: 1;
+    }
+
+    /* Logo */
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(3rem, 8vw, 5rem);
+      letter-spacing: -0.02em;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: riseIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+    }
+
+    .logo .u { color: var(--accent); }
+    .logo .speak { color: var(--text); }
+
+    /* Tagline */
+    .tagline {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      font-size: 0.85rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #444;
+      opacity: 0;
+      animation: riseIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
+    }
+
+    /* Loading bar */
+    .bar-track {
+      width: 120px;
+      height: 1px;
+      background: #1a1a1a;
+      border-radius: 999px;
+      overflow: hidden;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.7s forwards;
+      margin-top: 12px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 999px;
+      animation: fillBar 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.8s forwards;
+    }
+
+    @keyframes riseIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fillBar {
+      to { width: 100%; }
+    }
+
+    /* Version tag */
+    .version {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      font-size: 0.7rem;
+      color: #222;
+      letter-spacing: 0.1em;
+      font-family: 'DM Sans', sans-serif;
     }
   </style>
 </head>
 
-<body class="min-h-screen flex items-center justify-center bg-black">
+<body>
+  <div class="glow"></div>
 
-  <!-- SPLASH CONTAINER -->
-  <div class="w-[390px] h-[844px] flex items-center justify-center">
-
-    <!-- LOGO -->
-    <h1 class="text-5xl font-bold tracking-wide opacity-0 logo-animate">
-      <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
+  <div class="splash-container">
+    <h1 class="logo">
+      <span class="u">U</span><span class="speak">SPEAK</span>
     </h1>
-
+    <p class="tagline">Speak. Analyze. Improve.</p>
+    <div class="bar-track">
+      <div class="bar-fill"></div>
+    </div>
   </div>
 
+  <span class="version">v1.0</span>
+
   <script>
-    // Redirect after splash
+    // Redirect after animation completes
     setTimeout(() => {
       window.location.href = "./vibe.html";
-    }, 1800);
+    }, 2200);
   </script>
-
 </body>
 </html>

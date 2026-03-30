@@ -1,146 +1,314 @@
 <!DOCTYPE html>
 <html lang="en">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>uSpeak – Vibe</title>
-
-  <!-- Tailwind CDN -->
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e63946;
+      --text: #ffffff;
+      --muted: #555555;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 520px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Logo */
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.01em;
+    }
+    .logo .u { color: var(--accent); }
+    .logo .speak { color: var(--text); }
+
+    /* Title */
+    .page-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin: 2.5rem 0 0.5rem 0;
+    }
+
+    .page-subtitle {
+      color: var(--muted);
+      font-size: 0.875rem;
+      font-weight: 300;
+      margin-bottom: 2rem;
+    }
+
+    /* Vibe card */
+    .vibe-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      width: 100%;
+      padding: 1rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+      text-align: left;
+      margin-bottom: 0.75rem;
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    .vibe-card:hover {
+      border-color: #2e2e2e;
+      background: #161616;
+      transform: translateY(-1px);
+    }
+
+    .vibe-card:active {
+      transform: scale(0.99);
+    }
+
+    .vibe-card:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Staggered entrance */
+    .vibe-card:nth-child(1) { animation: riseIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.05s forwards; }
+    .vibe-card:nth-child(2) { animation: riseIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.12s forwards; }
+    .vibe-card:nth-child(3) { animation: riseIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.19s forwards; }
+    .vibe-card:nth-child(4) { animation: riseIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.26s forwards; }
+    .vibe-card:nth-child(5) { animation: riseIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.33s forwards; }
+    .vibe-card:nth-child(6) { animation: riseIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.40s forwards; }
+
+    @keyframes riseIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Icon box */
+    .vibe-icon {
+      width: 42px;
+      height: 42px;
+      min-width: 42px;
+      border-radius: 10px;
+      background: #1a1a1a;
+      border: 1px solid #252525;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: 0.95rem;
+      transition: background 0.2s ease;
+    }
+
+    .vibe-card:hover .vibe-icon {
+      background: rgba(230, 57, 70, 0.08);
+      border-color: rgba(230, 57, 70, 0.2);
+    }
+
+    .vibe-label {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #ccc;
+      flex: 1;
+    }
+
+    .vibe-arrow {
+      color: #2a2a2a;
+      font-size: 0.75rem;
+      transition: color 0.2s ease, transform 0.2s ease;
+    }
+
+    .vibe-card:hover .vibe-arrow {
+      color: #444;
+      transform: translateX(2px);
+    }
+
+    /* Settings btn */
+    .settings-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      text-decoration: none;
+    }
+
+    .settings-btn:hover {
+      border-color: #333;
+      color: #888;
+    }
+
+    /* Loading overlay */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 10, 10, 0.92);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .loading-overlay.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 2px solid #1f1f1f;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+    }
+  </style>
 </head>
 
-<body class="min-h-screen flex items-center justify-center bg-black text-white">
-
-  <!-- PHONE CONTAINER -->
-  <div class="w-[390px] h-[844px] px-6 py-6">
+<body>
+  <div class="page-wrap">
 
     <!-- HEADER -->
-    <div class="flex items-center justify-between mb-10">
-      <div class="text-xl font-bold tracking-wide">
-        <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
-      </div>
-
-      <!-- SETTINGS ICON -->
-      <button id="settingsBtn" class="text-[#161A1D] hover:text-white text-2xl transition-all duration-300">
-  <a href="./settings.html">
-  <i class="fa-solid fa-gear"></i>
-</a>
-
-</button>
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="logo"><span class="u">U</span><span class="speak">SPEAK</span></div>
+      <a href="./settings.html" class="settings-btn">
+        <i class="fa-solid fa-gear" style="font-size:0.85rem;"></i>
+      </a>
     </div>
 
     <!-- TITLE -->
-    <h1 class="text-2xl font-medium mb-8">
-      What’s the vibe..
-    </h1>
+    <h1 class="page-title">What's the<br/>vibe today?</h1>
+    <p class="page-subtitle">Pick a topic category to get started</p>
 
     <!-- VIBE LIST -->
-    <div class="space-y-5">
-
-      <!-- ITEM -->
-      <button onclick="selectVibe('Personal')" class="w-full flex items-center gap-4">
-
-        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
-          <i class="fa-solid fa-child"></i>
-        </div>
-        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
-          Personal Life
-        </div>
+    <div id="vibeList">
+      <button class="vibe-card" onclick="selectVibe('personal')">
+        <div class="vibe-icon"><i class="fa-solid fa-user"></i></div>
+        <span class="vibe-label">Personal Life</span>
+        <i class="fa-solid fa-chevron-right vibe-arrow"></i>
       </button>
 
-      <button onclick="selectVibe('Motivation')" class="w-full flex items-center gap-4">
-
-        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
-          <i class="fa-solid fa-fire"></i>
-        </div>
-        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
-          Motivation
-        </div>
+      <button class="vibe-card" onclick="selectVibe('motivation')">
+        <div class="vibe-icon"><i class="fa-solid fa-fire"></i></div>
+        <span class="vibe-label">Motivation</span>
+        <i class="fa-solid fa-chevron-right vibe-arrow"></i>
       </button>
 
-      <button onclick="selectVibe('tech')" class="w-full flex items-center gap-4">
-
-        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
-          <i class="fa-solid fa-laptop-code"></i>
-        </div>
-        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
-          Tech & Future
-        </div>
+      <button class="vibe-card" onclick="selectVibe('tech')">
+        <div class="vibe-icon"><i class="fa-solid fa-laptop-code"></i></div>
+        <span class="vibe-label">Tech & Future</span>
+        <i class="fa-solid fa-chevron-right vibe-arrow"></i>
       </button>
 
-      <button onclick="selectVibe('entertainment')" class="w-full flex items-center gap-4">
-
-        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
-          <i class="fa-solid fa-music"></i>
-        </div>
-        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
-          Entertainment
-        </div>
+      <button class="vibe-card" onclick="selectVibe('entertainment')">
+        <div class="vibe-icon"><i class="fa-solid fa-music"></i></div>
+        <span class="vibe-label">Entertainment</span>
+        <i class="fa-solid fa-chevron-right vibe-arrow"></i>
       </button>
 
-      <button onclick="selectVibe('travel')" class="w-full flex items-center gap-4">
-        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
-          <i class="fa-solid fa-plane"></i>
-        </div>
-        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
-          Travel & Adventure
-        </div>
-    </button>
+      <button class="vibe-card" onclick="selectVibe('travel')">
+        <div class="vibe-icon"><i class="fa-solid fa-plane"></i></div>
+        <span class="vibe-label">Travel & Adventure</span>
+        <i class="fa-solid fa-chevron-right vibe-arrow"></i>
+      </button>
 
-      <button onclick="selectVibe('surprise')" class="w-full flex items-center gap-4">
-        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
-          <i class="fa-solid fa-gift"></i>
-        </div>
-        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
-          Surprise Me
-        </div>
-    </button>
-
+      <button class="vibe-card" onclick="selectVibe('surprise')">
+        <div class="vibe-icon"><i class="fa-solid fa-gift"></i></div>
+        <span class="vibe-label">Surprise Me</span>
+        <i class="fa-solid fa-chevron-right vibe-arrow"></i>
+      </button>
     </div>
 
   </div>
 
-</body>
-<script>
-  // Fallback topics for each vibe
-  const fallbackTopics = {
-    'Personal': "What's a memory that always makes you smile?",
-    'Motivation': "What drives you to keep going when things get tough?",
-    'tech': "How has technology changed your daily life?",
-    'entertainment': "What movie or show had the biggest impact on you?",
-    'travel': "What's the most memorable place you've ever visited?",
-    'surprise': "If you could have any superpower, what would it be and why?"
-  };
+  <!-- LOADING OVERLAY -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <p class="loading-text">Finding your topic...</p>
+  </div>
 
-  async function selectVibe(vibe) {
-    // Use fallback immediately for instant navigation
-    const fallbackTopic = fallbackTopics[vibe] || "Talk about something meaningful to you.";
-    localStorage.setItem("generatedTopic", fallbackTopic);
-    
-    // Navigate immediately
-    window.location.href = "./rant.html";
-    
-    // Try to get AI topic in background (for next time)
-    try {
-      const res = await fetch("http://127.0.0.1:8000/generate-topic", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ vibe }),
-        signal: AbortSignal.timeout(2000) // 2 second timeout
-      });
+  <script>
+    async function selectVibe(vibe) {
+      document.getElementById("loadingOverlay").classList.add("active");
+      document.querySelectorAll(".vibe-card").forEach(b => b.disabled = true);
 
-      if (res.ok) {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/generate-topic", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vibe })
+        });
+
+        if (!res.ok) {
+          console.error("Server error:", res.status, await res.text());
+          return;
+        }
+
         const data = await res.json();
-        // Update localStorage with AI topic if successful
         localStorage.setItem("generatedTopic", data.topic);
-      }
-    } catch (error) {
-      // Silently fail - user already navigated with fallback
-    }
-  }
-</script>
+        window.location.href = "./rant.html";
 
+      } catch (err) {
+        console.error("Fetch failed:", err);
+        document.getElementById("loadingOverlay").classList.remove("active");
+        document.querySelectorAll(".vibe-card").forEach(b => b.disabled = false);
+      }
+    }
+  </script>
+</body>
 </html>

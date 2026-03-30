@@ -4,167 +4,335 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>uSpeak – Settings</title>
-
-  <!-- Tailwind CDN -->
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e63946;
+      --text: #ffffff;
+      --muted: #555555;
+    }
 
-  <!-- Font Awesome (for consistency with vibe page) -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-  />
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 520px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 2rem 1.5rem 3rem;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+    .logo .u { color: var(--accent); }
+
+    .close-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.75rem;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .close-btn:hover { border-color: #333; color: #888; }
+
+    .page-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      letter-spacing: -0.03em;
+      margin: 2rem 0 0.4rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.1s forwards;
+    }
+
+    .page-subtitle {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 300;
+      margin-bottom: 2.5rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.2s forwards;
+    }
+
+    .field-group { margin-bottom: 1.5rem; }
+
+    .field-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 0.6rem;
+      display: block;
+    }
+
+    .field-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.875rem 1rem;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field-input:focus { border-color: #333; }
+    .field-input::placeholder { color: #333; }
+
+    input[type="time"]::-webkit-calendar-picker-indicator {
+      filter: invert(0.3);
+      cursor: pointer;
+    }
+
+    .length-options { display: flex; gap: 0.6rem; }
+    .length-option { flex: 1; cursor: pointer; }
+    .length-option input[type="radio"] { display: none; }
+
+    .length-pill {
+      display: block;
+      text-align: center;
+      padding: 0.75rem 0.5rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+
+    .length-option input:checked + .length-pill {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(230,57,70,0.06);
+    }
+
+    .length-pill:hover { border-color: #333; color: #888; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+
+    .btn-row { display: flex; gap: 0.75rem; }
+
+    .btn-secondary {
+      flex: 1;
+      padding: 0.875rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-secondary:hover { border-color: #333; color: #888; }
+
+    .btn-primary {
+      flex: 2;
+      padding: 0.875rem;
+      background: var(--accent);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary:active { transform: scale(0.98); }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.8rem;
+      color: #ccc;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 100;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 
-<body class="min-h-screen flex items-center justify-center bg-black text-white">
-
-  <!-- PHONE CONTAINER -->
-  <div class="w-[390px] h-[844px] px-6 py-6">
+<body>
+  <div class="page-wrap">
 
     <!-- HEADER -->
-    <div class="flex items-center justify-between mb-10">
-      <div class="text-xl font-bold tracking-wide">
-        <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
-      </div>
-
-      <!-- BACK / CLOSE -->
-      <a href="./vibe.html" class="text-lg opacity-70 hover:opacity-100">
-        ✕
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="logo"><span class="u">U</span><span style="color:#fff">SPEAK</span></div>
+      <a href="./vibe.html" class="close-btn">
+        <i class="fa-solid fa-xmark"></i>
       </a>
     </div>
 
     <!-- TITLE -->
-    <h1 class="text-2xl font-medium mb-8">
-      Settings
-    </h1>
+    <h1 class="page-title">Settings.</h1>
+    <p class="page-subtitle">Customize your practice experience</p>
 
-    <!-- FORM -->
-    <div class="space-y-6">
+    <!-- EMAIL -->
+    <div class="field-group">
+      <label class="field-label">Reminder Email</label>
+      <input id="emailInput" type="email" placeholder="you@gmail.com" class="field-input" />
+    </div>
 
-      <!-- EMAIL -->
-      <div>
-        <label class="block text-sm opacity-70 mb-2">Gmail</label>
-        <input
-  id="emailInput"
-  type="email"
-  placeholder="you@gmail.com"
-  class="w-full bg-[#0f1113] rounded-xl px-4 py-3 outline-none"
-/>
+    <!-- TIME -->
+    <div class="field-group">
+      <label class="field-label">Daily Reminder Time</label>
+      <input id="timeInput" type="time" class="field-input" />
+    </div>
 
+    <!-- SESSION LENGTH -->
+    <div class="field-group">
+      <label class="field-label">Session Length</label>
+      <div class="length-options">
+        <label class="length-option">
+          <input type="radio" name="length" value="2" />
+          <span class="length-pill">2 min</span>
+        </label>
+        <label class="length-option">
+          <input type="radio" name="length" value="5" />
+          <span class="length-pill">5 min</span>
+        </label>
+        <label class="length-option">
+          <input type="radio" name="length" value="10" />
+          <span class="length-pill">10 min</span>
+        </label>
       </div>
+    </div>
 
-      <!-- SCHEDULE -->
-      <!-- SCHEDULE -->
-<div>
-  <label class="block text-sm opacity-70 mb-2">Schedule Time</label>
-  <input
-  id="timeInput"
-  type="time"
-  class="w-full bg-[#0f1113] rounded-xl px-4 py-3 outline-none"
-/>
+    <hr class="divider" />
 
-</div>
-
-
-      <!-- LENGTH -->
-      <!-- SESSION LENGTH -->
-<div>
-  <label class="block text-sm opacity-70 mb-3">Session Length</label>
-
-  <div class="flex gap-4">
-    <label class="flex-1 cursor-pointer">
-      <input type="radio" name="length" value="2" class="hidden peer" />
-      <div class="text-center py-3 rounded-xl bg-[#0f1113] peer-checked:bg-red-600">
-        2 min
-      </div>
-    </label>
-
-    <label class="flex-1 cursor-pointer">
-      <input type="radio" name="length" value="5" class="hidden peer" />
-      <div class="text-center py-3 rounded-xl bg-[#0f1113] peer-checked:bg-red-600">
-        5 min
-      </div>
-    </label>
-
-    <label class="flex-1 cursor-pointer">
-      <input type="radio" name="length" value="10" class="hidden peer" />
-      <div class="text-center py-3 rounded-xl bg-[#0f1113] peer-checked:bg-red-600">
-        10 min
-      </div>
-    </label>
-  </div>
-</div>
-<button
-  id="saveSettings"
-  type="button"
-  class="w-full bg-[#1a1f22] py-3 rounded-xl text-[#660708] font-medium"
->
-  Save
-</button>
-
-
-
-    <!-- CONTINUE BUTTON -->
-    <div class="mt-12">
-      <a
-        href="./vibe.html"
-        class="block w-full text-center bg-red-600 rounded-xl py-3 font-medium hover:bg-red-700"
-      >
-        Continue
-      </a>
+    <!-- BUTTONS -->
+    <div class="btn-row">
+      <a href="./vibe.html" class="btn-secondary">Cancel</a>
+      <button id="saveBtn" class="btn-primary">
+        Save Settings
+        <i class="fa-solid fa-check" style="font-size:0.75rem;"></i>
+      </button>
     </div>
 
   </div>
 
-</body>
-<script>
-  // 🔹 Restore saved values on page load
-  window.addEventListener("load", () => {
-    const savedEmail = localStorage.getItem("email");
-    const savedTime = localStorage.getItem("time");
-    const savedLength = localStorage.getItem("sessionLength");
+  <div class="toast" id="toast"></div>
 
-    if (savedEmail) document.getElementById("emailInput").value = savedEmail;
-    if (savedTime) document.getElementById("timeInput").value = savedTime;
+  <script>
+    window.addEventListener("load", () => {
+      const savedEmail  = localStorage.getItem("email");
+      const savedTime   = localStorage.getItem("time");
+      const savedLength = localStorage.getItem("sessionLength");
 
-    if (savedLength) {
-      const radio = document.querySelector(
-        `input[name="length"][value="${savedLength}"]`
-      );
-      if (radio) radio.checked = true;
-    }
-  });
-
-  document.getElementById("saveSettings").addEventListener("click", async () => {
-    const email = document.getElementById("emailInput").value;
-    const time = document.getElementById("timeInput").value;
-    const lengthInput = document.querySelector('input[name="length"]:checked');
-
-    if (!email || !time || !lengthInput) {
-      alert("Please fill all fields");
-      return;
-    }
-
-    const sessionLength = lengthInput.value;
-
-    // 🔹 Save locally (for UX + recording)
-    localStorage.setItem("email", email);
-    localStorage.setItem("time", time);
-    localStorage.setItem("sessionLength", sessionLength);
-
-    // 🔹 Save to backend (for Gmail reminders)
-    const res = await fetch("http://127.0.0.1:8000/save-settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, time })
+      if (savedEmail) document.getElementById("emailInput").value = savedEmail;
+      if (savedTime)  document.getElementById("timeInput").value  = savedTime;
+      if (savedLength) {
+        const radio = document.querySelector(`input[name="length"][value="${savedLength}"]`);
+        if (radio) radio.checked = true;
+      }
     });
 
-    const data = await res.json();
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      const email       = document.getElementById("emailInput").value.trim();
+      const time        = document.getElementById("timeInput").value;
+      const lengthInput = document.querySelector('input[name="length"]:checked');
 
-    if (data.status === "saved") {
-      alert("Settings saved successfully 🎉");
+      if (!email || !time || !lengthInput) {
+        showToast("⚠ Please fill all fields");
+        return;
+      }
+
+      localStorage.setItem("email", email);
+      localStorage.setItem("time", time);
+      localStorage.setItem("sessionLength", lengthInput.value);
+
+      try {
+        const res = await fetch("http://127.0.0.1:8000/save-settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, time })
+        });
+        const data = await res.json();
+        if (data.status === "saved") showToast("✓ Settings saved");
+      } catch (err) {
+        showToast("✓ Saved locally");
+      }
+    });
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2500);
     }
-  });
-</script>
-
-
+  </script>
+</body>
 </html>

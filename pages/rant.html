@@ -3,78 +3,263 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>uSpeak – Start Ranting</title>
-
-  <!-- Tailwind CDN -->
+  <title>uSpeak – Your Topic</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e63946;
+      --text: #ffffff;
+      --muted: #555555;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 520px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.01em;
+    }
+    .logo .u { color: var(--accent); }
+    .logo .speak { color: var(--text); }
+
+    /* Eyebrow label */
+    .eyebrow {
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.1s forwards;
+    }
+
+    .page-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.4rem, 6vw, 3.2rem);
+      letter-spacing: -0.04em;
+      line-height: 1.0;
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.15s forwards;
+    }
+
+    /* Topic card */
+    .topic-card {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      opacity: 0;
+      animation: riseIn 0.6s ease 0.25s forwards;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle red corner glow */
+    .topic-card::before {
+      content: '';
+      position: absolute;
+      top: -40px;
+      right: -40px;
+      width: 160px;
+      height: 160px;
+      background: radial-gradient(circle, rgba(230,57,70,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .topic-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .topic-tag span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: inline-block;
+    }
+
+    .topic-text {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.3rem, 3.5vw, 1.7rem);
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+      color: #e8e8e8;
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .topic-hint {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+      opacity: 0;
+      animation: riseIn 0.5s ease 0.4s forwards;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      padding: 0.875rem 1rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: center;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .btn-secondary:hover {
+      border-color: #333;
+      color: #888;
+    }
+
+    .btn-primary {
+      flex: 2;
+      padding: 0.875rem 1rem;
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: center;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 
-<body class="min-h-screen flex items-center justify-center bg-black text-white">
-
-  <!-- PHONE CONTAINER -->
-  <div class="w-[390px] h-[844px] px-6 py-8 flex flex-col">
+<body>
+  <div class="page-wrap">
 
     <!-- HEADER -->
-    <div class="mb-10">
-      <div class="text-xl font-bold tracking-wide">
-        <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
-      </div>
+    <div style="margin-bottom: 2rem;">
+      <div class="logo"><span class="u">U</span><span class="speak">SPEAK</span></div>
     </div>
 
     <!-- TITLE -->
-    <div class="mb-8">
-      <h1 class="text-5xl font-extrabold leading-tight">
-        Start<br/>Ranting
-      </h1>
-    </div>
+    <p class="eyebrow">Your topic</p>
+    <h1 class="page-title">Start<br/>Ranting.</h1>
 
-    <!-- PROMPT CARD -->
-    <div class="flex-1 flex items-center justify-center">
-      <div class="w-full bg-[#1a1f22] rounded-3xl px-8 py-16 min-h-[380px]">
-        <p
-  id="topicText"
-  class="text-2xl font-bold leading-snug text-gray-200"
->
-  Loading topic...
-</p>
+    <!-- TOPIC CARD -->
+    <div class="topic-card">
+      <div>
+        <div class="topic-tag">
+          <span></span> Today's prompt
+        </div>
+        <p class="topic-text" id="topicText">Loading topic...</p>
       </div>
+      <p class="topic-hint">
+        Speak freely for 1–2 minutes. No script needed — just your thoughts.
+      </p>
     </div>
 
-    <!-- ACTION BUTTONS -->
-    <div class="mt-10 flex justify-between gap-4">
-
-      <!-- TRY AGAIN -->
-      <a
-  href="./vibe.html"
-  class="flex-1 bg-[#1a1f22] text-sm py-3 rounded-full text-gray-300
-         flex items-center justify-center"
->
-  TRY AGAIN
-</a>
-
-<!-- IGNITE -->
-<a
-  href="./recording.html"
-  class="flex-1 bg-[#1a1f22] text-sm py-3 rounded-full text-[#660708] font-semibold
-         flex items-center justify-center"
->
-  IGNITE
-</a>
-
-
+    <!-- BUTTONS -->
+    <div class="btn-row">
+      <a href="./vibe.html" class="btn-secondary">← New topic</a>
+      <a href="./recording.html" class="btn-primary">
+        Ignite
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      </a>
     </div>
 
   </div>
 
+  <script>
+    const topicEl = document.getElementById("topicText");
+    const topic = localStorage.getItem("generatedTopic");
+    topicEl.innerText = (topic && topic.trim()) ? topic : "Talk about something meaningful to you.";
+  </script>
 </body>
-<script>
-  const topicEl = document.getElementById("topicText");
-  const topic = localStorage.getItem("generatedTopic");
-
-  if (topic && topic.trim() !== "") {
-    topicEl.innerText = topic;
-  } else {
-    topicEl.innerText = "Talk about something meaningful to you.";
-  }
-</script>
 </html>
