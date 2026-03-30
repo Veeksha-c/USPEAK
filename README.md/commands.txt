@@ -1,0 +1,4 @@
+first command= venv\Scripts\activate
+second command=cd backend
+third command=uvicorn main:app --reload
+fourth command=go live of the splash.html

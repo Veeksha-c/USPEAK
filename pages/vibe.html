@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak – Vibe</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-black text-white">
+
+  <!-- PHONE CONTAINER -->
+  <div class="w-[390px] h-[844px] px-6 py-6">
+
+    <!-- HEADER -->
+    <div class="flex items-center justify-between mb-10">
+      <div class="text-xl font-bold tracking-wide">
+        <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
+      </div>
+
+      <!-- SETTINGS ICON -->
+      <button id="settingsBtn" class="text-[#161A1D] hover:text-white text-2xl transition-all duration-300">
+  <a href="./settings.html">
+  <i class="fa-solid fa-gear"></i>
+</a>
+
+</button>
+    </div>
+
+    <!-- TITLE -->
+    <h1 class="text-2xl font-medium mb-8">
+      What’s the vibe..
+    </h1>
+
+    <!-- VIBE LIST -->
+    <div class="space-y-5">
+
+      <!-- ITEM -->
+      <button onclick="selectVibe('Personal')" class="w-full flex items-center gap-4">
+
+        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
+          <i class="fa-solid fa-child"></i>
+        </div>
+        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
+          Personal Life
+        </div>
+      </button>
+
+      <button onclick="selectVibe('Motivation')" class="w-full flex items-center gap-4">
+
+        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
+          <i class="fa-solid fa-fire"></i>
+        </div>
+        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
+          Motivation
+        </div>
+      </button>
+
+      <button onclick="selectVibe('tech')" class="w-full flex items-center gap-4">
+
+        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
+          <i class="fa-solid fa-laptop-code"></i>
+        </div>
+        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
+          Tech & Future
+        </div>
+      </button>
+
+      <button onclick="selectVibe('entertainment')" class="w-full flex items-center gap-4">
+
+        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
+          <i class="fa-solid fa-music"></i>
+        </div>
+        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
+          Entertainment
+        </div>
+      </button>
+
+      <button onclick="selectVibe('travel')" class="w-full flex items-center gap-4">
+        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
+          <i class="fa-solid fa-plane"></i>
+        </div>
+        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
+          Travel & Adventure
+        </div>
+    </button>
+
+      <button onclick="selectVibe('surprise')" class="w-full flex items-center gap-4">
+        <div class="w-11 h-11 rounded-full bg-[#161A1D] flex items-center justify-center text-sm font-semibold">
+          <i class="fa-solid fa-gift"></i>
+        </div>
+        <div class="flex-1 rounded-full px-5 py-3 bg-[#0f1113] text-left">
+          Surprise Me
+        </div>
+    </button>
+
+    </div>
+
+  </div>
+
+</body>
+<script>
+  // Fallback topics for each vibe
+  const fallbackTopics = {
+    'Personal': "What's a memory that always makes you smile?",
+    'Motivation': "What drives you to keep going when things get tough?",
+    'tech': "How has technology changed your daily life?",
+    'entertainment': "What movie or show had the biggest impact on you?",
+    'travel': "What's the most memorable place you've ever visited?",
+    'surprise': "If you could have any superpower, what would it be and why?"
+  };
+
+  async function selectVibe(vibe) {
+    // Use fallback immediately for instant navigation
+    const fallbackTopic = fallbackTopics[vibe] || "Talk about something meaningful to you.";
+    localStorage.setItem("generatedTopic", fallbackTopic);
+    
+    // Navigate immediately
+    window.location.href = "./rant.html";
+    
+    // Try to get AI topic in background (for next time)
+    try {
+      const res = await fetch("http://127.0.0.1:8000/generate-topic", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ vibe }),
+        signal: AbortSignal.timeout(2000) // 2 second timeout
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Update localStorage with AI topic if successful
+        localStorage.setItem("generatedTopic", data.topic);
+      }
+    } catch (error) {
+      // Silently fail - user already navigated with fallback
+    }
+  }
+</script>
+
+</html>

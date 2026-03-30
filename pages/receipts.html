@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak – The Receipts</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js for line graph -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+  .streak-box::after {
+    content: attr(data-date);
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #660708;
+    color: white;
+    font-size: 10px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .streak-box:hover::after {
+    opacity: 1;
+  }
+</style>
+
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-black text-white">
+
+  <!-- PHONE CONTAINER -->
+  <div class="w-[390px] h-[844px] px-6 py-8 flex flex-col">
+
+    <!-- HEADER -->
+    <div class="mb-6">
+      <div class="text-xl font-bold tracking-wide">
+        <span class="text-[#660708]">U</span><span class="text-[#161A1D]">SPEAK</span>
+      </div>
+    </div>
+
+    <!-- TITLE -->
+    <h1 class="text-center text-2xl font-extrabold mb-6">
+      The Receipts
+    </h1>
+
+    <!-- GRAPH CARD -->
+    <div class="bg-[#1a1f22] rounded-2xl p-4 mb-6">
+      <p class="text-center font-bold mb-4">
+        GRAPH FROM PAST<br />10 VIDEOS
+      </p>
+
+      <canvas id="progressChart" height="160"></canvas>
+    </div>
+
+    <!-- STREAK SECTION -->
+    <div class="flex-1">
+      <p class="text-center font-bold mb-4">
+        STREAK
+      </p>
+
+      <!-- CALENDAR GRID -->
+      <div
+  id="streakGrid"
+  class="grid grid-cols-7 gap-3 justify-items-center"
+></div>
+
+
+    <!-- GO AGAIN -->
+    <div class="mt-6">
+      <button
+        class="w-full bg-[#1a1f22] py-3 rounded-full text-[#660708] font-semibold"
+        onclick="window.location.href='./vibe.html'"
+      >
+        Go Again
+      </button>
+    </div>
+
+  </div>
+
+  <!-- GRAPH SCRIPT -->
+  <script>
+  const sessions = JSON.parse(localStorage.getItem("sessions")) || [];
+
+  const labels = sessions.map((_, i) => `Session ${i + 1}`);
+  const scores = sessions.map(s => s.avgScore);
+
+  const ctx = document.getElementById("progressChart");
+
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        data: scores,
+        borderColor: "#660708",
+        pointBackgroundColor: "#660708",
+        tension: 0.4,
+        fill: false
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, max: 10 }
+      }
+    }
+  });
+  const streakGrid = document.getElementById("streakGrid");
+
+  const attendedDates = sessions.map(s => s.date);
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    const box = document.createElement("div");
+box.className = "streak-box w-6 h-6 rounded relative cursor-pointer";
+box.setAttribute("data-date", dateStr);
+
+
+    if (attendedDates.includes(dateStr)) {
+      box.classList.add("bg-black"); // attended
+    } else {
+      box.classList.add("bg-[#1a1f22]"); // missed
+    }
+
+    streakGrid.appendChild(box);
+  } 
+  if (sessions.length > 0) {
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        data: scores,
+        borderColor: "#660708",
+        pointBackgroundColor: "#660708",
+        tension: 0.4,
+        fill: false
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, max: 10 }
+      }
+    }
+  });
+}
+
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak – Report</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-black text-white">
+
+  <!-- PHONE CONTAINER -->
+  <div class="w-[390px] h-[844px] px-6 py-8 flex flex-col">
+
+    <!-- HEADER -->
+    <div class="mb-8">
+      <div class="text-xl font-bold tracking-wide">
+        <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
+      </div>
+    </div>
+
+    <!-- TITLE -->
+    <h1 class="text-center text-2xl font-extrabold mb-8">
+      REPORT
+    </h1>
+
+    <!-- PROS / POSITIVE FEEDBACK -->
+    <div class="bg-[#1a1f22] rounded-2xl p-6 mb-6 flex-1">
+  <h2 class="text-xl font-bold mb-4">PROS</h2>
+  <ul id="prosList" class="list-disc list-inside space-y-3 text-gray-200"></ul>
+</div>
+
+<div class="bg-[#1a1f22] rounded-2xl p-6 flex-1">
+  <h2 class="text-xl font-bold mb-4">CONS</h2>
+  <ul id="consList" class="list-disc list-inside space-y-3 text-gray-200"></ul>
+</div>
+
+    <!-- NEXT BUTTON -->
+    <div class="mt-8">
+      <button
+        class="w-full bg-[#1a1f22] py-3 rounded-full text-lg font-semibold"
+        onclick="window.location.href='./stats.html'"
+      >
+        NEXT
+      </button>
+    </div>
+
+  </div>
+
+</body>
+<script>
+  const rawAnalysis = localStorage.getItem("analysis");
+
+  if (!rawAnalysis) {
+    alert("No analysis found. Please record again.");
+    window.location.href = "./vibe.html";
+  }
+
+  const analysis = JSON.parse(rawAnalysis);
+
+  const prosList = document.getElementById("prosList");
+  const consList = document.getElementById("consList");
+
+  // Clear lists (safety)
+  prosList.innerHTML = "";
+  consList.innerHTML = "";
+
+  analysis.pros.forEach(p => {
+    const li = document.createElement("li");
+    li.textContent = p;
+    prosList.appendChild(li);
+  });
+
+  analysis.cons.forEach(c => {
+    const li = document.createElement("li");
+    li.textContent = c;
+    consList.appendChild(li);
+  });
+
+</script>
+
+</html>

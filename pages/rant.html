@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak – Start Ranting</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-black text-white">
+
+  <!-- PHONE CONTAINER -->
+  <div class="w-[390px] h-[844px] px-6 py-8 flex flex-col">
+
+    <!-- HEADER -->
+    <div class="mb-10">
+      <div class="text-xl font-bold tracking-wide">
+        <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
+      </div>
+    </div>
+
+    <!-- TITLE -->
+    <div class="mb-8">
+      <h1 class="text-5xl font-extrabold leading-tight">
+        Start<br/>Ranting
+      </h1>
+    </div>
+
+    <!-- PROMPT CARD -->
+    <div class="flex-1 flex items-center justify-center">
+      <div class="w-full bg-[#1a1f22] rounded-3xl px-8 py-16 min-h-[380px]">
+        <p
+  id="topicText"
+  class="text-2xl font-bold leading-snug text-gray-200"
+>
+  Loading topic...
+</p>
+      </div>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div class="mt-10 flex justify-between gap-4">
+
+      <!-- TRY AGAIN -->
+      <a
+  href="./vibe.html"
+  class="flex-1 bg-[#1a1f22] text-sm py-3 rounded-full text-gray-300
+         flex items-center justify-center"
+>
+  TRY AGAIN
+</a>
+
+<!-- IGNITE -->
+<a
+  href="./recording.html"
+  class="flex-1 bg-[#1a1f22] text-sm py-3 rounded-full text-[#660708] font-semibold
+         flex items-center justify-center"
+>
+  IGNITE
+</a>
+
+
+    </div>
+
+  </div>
+
+</body>
+<script>
+  const topicEl = document.getElementById("topicText");
+  const topic = localStorage.getItem("generatedTopic");
+
+  if (topic && topic.trim() !== "") {
+    topicEl.innerText = topic;
+  } else {
+    topicEl.innerText = "Talk about something meaningful to you.";
+  }
+</script>
+</html>

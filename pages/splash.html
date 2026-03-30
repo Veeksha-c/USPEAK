@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    .logo-animate {
+      animation: fadeScale 1.2s ease-out forwards;
+    }
+
+    @keyframes fadeScale {
+      from {
+        opacity: 0;
+        transform: scale(0.92);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-black">
+
+  <!-- SPLASH CONTAINER -->
+  <div class="w-[390px] h-[844px] flex items-center justify-center">
+
+    <!-- LOGO -->
+    <h1 class="text-5xl font-bold tracking-wide opacity-0 logo-animate">
+      <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
+    </h1>
+
+  </div>
+
+  <script>
+    // Redirect after splash
+    setTimeout(() => {
+      window.location.href = "./vibe.html";
+    }, 1800);
+  </script>
+
+</body>
+</html>

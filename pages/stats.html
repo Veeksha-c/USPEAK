@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak – Stats</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-black text-white">
+
+  <!-- PHONE CONTAINER -->
+  <div class="w-[390px] h-[844px] px-6 py-8 flex flex-col">
+
+    <!-- HEADER -->
+    <div class="mb-8">
+      <div class="text-xl font-bold tracking-wide">
+        <span class="text-red-600">U</span><span class="text-[#161A1D]">SPEAK</span>
+      </div>
+    </div>
+
+    <!-- TITLE -->
+    <h1 class="text-center text-2xl font-extrabold mb-10">
+      THE STATS
+    </h1>
+
+    <!-- STATS GRID -->
+    <div class="grid grid-cols-2 gap-6 flex-1">
+
+      <!-- CARD -->
+      <div class="bg-[#1a1f22] rounded-2xl p-6 text-center">
+        <p class="text-sm opacity-70 mb-6">Filler Words</p>
+        <p class="text-4xl font-extrabold text-red-600" id="filler">10</p>
+      </div>
+
+      <div class="bg-[#1a1f22] rounded-2xl p-6 text-center">
+        <p class="text-sm opacity-70 mb-6">On Topic</p>
+        <p class="text-4xl font-extrabold text-red-600" id="topic">10</p>
+      </div>
+
+      <div class="bg-[#1a1f22] rounded-2xl p-6 text-center">
+        <p class="text-sm opacity-70 mb-6">Fluency</p>
+        <p class="text-4xl font-extrabold text-red-600" id="fluency">10</p>
+      </div>
+
+      <div class="bg-[#1a1f22] rounded-2xl p-6 text-center">
+        <p class="text-sm opacity-70 mb-6">Clarity of Speech</p>
+        <p class="text-4xl font-extrabold text-red-600" id="clarity">10</p>
+      </div>
+
+      <div class="bg-[#1a1f22] rounded-2xl p-6 text-center">
+        <p class="text-sm opacity-70 mb-6">Confidence</p>
+        <p class="text-4xl font-extrabold text-red-600" id="confidence">10</p>
+      </div>
+
+      <div class="bg-[#1a1f22] rounded-2xl p-6 text-center">
+        <p class="text-sm opacity-70 mb-6">Body Language</p>
+        <p class="text-4xl font-extrabold text-red-600" id="body">10</p>
+      </div>
+
+    </div>
+
+    <!-- NEXT BUTTON -->
+    <div class="mt-8">
+      <button
+        class="w-full bg-[#1a1f22] py-3 rounded-full text-lg font-semibold"
+        onclick="window.location.href='./receipts.html'"
+      >
+        The Receipts
+      </button>
+    </div>
+
+  </div>
+
+</body>
+<script>
+  const analysis = JSON.parse(localStorage.getItem("analysis"));
+  const scores = analysis.scores;
+
+  document.getElementById("fluency").innerText = scores.fluency;
+  document.getElementById("clarity").innerText = scores.clarity;
+  document.getElementById("confidence").innerText = scores.confidence;
+  document.getElementById("filler").innerText = scores.filler_words;
+  document.getElementById("topic").innerText = scores.on_topic;
+  document.getElementById("body").innerText=scores.body_language;
+</script>
+
+</html>
