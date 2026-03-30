@@ -13,8 +13,6 @@ from email.mime.multipart import MIMEMultipart
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from feedback import analyze_speech_full
-
-
 # Load environment variables
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 print(f"Loading .env from: {env_path}")
@@ -206,7 +204,6 @@ def save_settings(data: SettingsRequest):
 
 
 @app.post("/generate-topic")
-@app.post("/generate-topic")
 def generate_topic(data: VibeRequest):
     vibe = data.vibe
 
@@ -310,16 +307,21 @@ async def transcribe_video(file: UploadFile = File(...)):
 
 
 
+# ── Replace your AnalysisRequest class and /analyze route in main.py ──
+
 class AnalysisRequest(BaseModel):
     transcript: str
-
+    body_language_score: float = 5.0  # default 5 if not provided
 
 @app.post("/analyze")
 def analyze_speech(data: AnalysisRequest):
     transcript = data.transcript
+    # This is the score MediaPipe calculated in your browser!
+    body_language_score = data.body_language_score 
 
     if not transcript or len(transcript.strip()) < 10:
-        return {"error": "Transcript too short to analyze.", "pros": [], "cons": [], "scores": {}, "overall_score": 0}
+        return {"error": "Transcript too short"}
 
-    result = analyze_speech_full(transcript, client)  # ← pass client here
+    # Pass the score to your feedback logic
+    result = analyze_speech_full(transcript, client, data.body_language_score)
     return result

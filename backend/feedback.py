@@ -213,29 +213,30 @@ def parse_analysis(text: str) -> dict:
 # ─────────────────────────────────────────────
 # MAIN FUNCTION — call this from your FastAPI route
 # ─────────────────────────────────────────────
-
-def analyze_speech_full(transcript: str, client) -> dict:
+# To this:
+def analyze_speech_full(transcript: str, client, body_language_score: float = 5.0) -> dict:
     """
     Full analysis pipeline:
     1. Filler word detection (in code)
     2. LLM rubric-based analysis
-    3. Merge results
+    3. Merge filler + body language scores
     """
     filler_data = count_filler_words(transcript)
     raw_llm = get_llm_analysis(transcript, client)
-    
-    # Step 1: filler words (accurate, no LLM needed)
     parsed = parse_analysis(raw_llm)
-
-    # Step 3: merge filler score into scores
+ 
+    # Merge filler score
     parsed["scores"]["filler_words"] = filler_data["score"]
     parsed["filler_details"] = {
         "total_count": filler_data["total"],
         "breakdown": filler_data["breakdown"]
     }
-
-    # Step 4: overall score (average of all 6)
+ 
+    # Merge REAL body language score from MediaPipe
+    parsed["scores"]["body_language"] = round(body_language_score, 1)
+ 
+    # Overall score (average of all 6)
     all_scores = list(parsed["scores"].values())
     parsed["overall_score"] = round(sum(all_scores) / len(all_scores), 1)
-
+ 
     return parsed
