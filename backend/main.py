@@ -17,6 +17,8 @@ from feedback import analyze_speech_full
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 print(f"Loading .env from: {env_path}")
 load_dotenv(env_path)
+
+from auth import router as auth_router 
 api_key = os.getenv("GROQ_API_KEY")
 print(f"GROQ_API_KEY loaded: {api_key[:10]}..." if api_key else "GROQ_API_KEY not found")
 
@@ -31,7 +33,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app.include_router(auth_router)
 class VibeRequest(BaseModel):
     vibe: str
 

@@ -5,6 +5,15 @@ git remote add origin https://github.com/YOUR_USERNAME/uspeak.git
 git branch -M main
 git push -u origin main
 
+
+git pull origin main
+
+
+git add --all
+git commit -m "added X feature"
+git push origin main
+
+
 # Example:
 # git remote add origin https://github.com/veekshac/uspeak.git
 # git branch -M main

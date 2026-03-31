@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>uSpeak – Signing in...</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@800&family=DM+Sans:wght@300&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0a;
+      font-family: 'DM Sans', sans-serif;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+    .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem; margin-bottom: 1rem; }
+    .logo .u { color: #e63946; }
+    .spinner { width: 32px; height: 32px; border: 2px solid #1f1f1f; border-top-color: #e63946; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .label { font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #444; }
+    .error-msg { font-size: 0.85rem; color: #e63946; text-align: center; max-width: 300px; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="logo"><span class="u">U</span><span>SPEAK</span></div>
+  <div class="spinner" id="spinner"></div>
+  <p class="label" id="label">Completing sign in...</p>
+  <p class="error-msg" id="errorMsg"></p>
+
+  <script>
+    const API = "http://127.0.0.1:8000";
+
+    async function handleCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const code   = params.get("code");
+      const state  = params.get("state");
+      const error  = params.get("error");
+
+      // Handle user denied
+      if (error) {
+        showError("Google sign-in was cancelled.");
+        setTimeout(() => window.location.href = "./login.html", 2000);
+        return;
+      }
+
+      // Verify state matches
+      const savedState = localStorage.getItem("oauth_state");
+      if (!code || state !== savedState) {
+        showError("Invalid OAuth state. Please try again.");
+        setTimeout(() => window.location.href = "./login.html", 2000);
+        return;
+      }
+
+      localStorage.removeItem("oauth_state");
+
+      try {
+        const res = await fetch(`${API}/auth/google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          // In auth-callback.html
+body: JSON.stringify({ 
+  code: code, 
+  redirect_uri: "http://127.0.0.1:5500/pages/auth-callback.html" 
+})
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.detail || "Google sign-in failed.");
+          setTimeout(() => window.location.href = "./login.html", 2000);
+          return;
+        }
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        window.location.href = "./vibe.html";
+
+      } catch (err) {
+        showError("Server unreachable. Please try again.");
+        setTimeout(() => window.location.href = "./login.html", 2000);
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById("spinner").style.display = "none";
+      document.getElementById("label").style.display = "none";
+      const el = document.getElementById("errorMsg");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    handleCallback();
+  </script>
+</body>
+</html>
