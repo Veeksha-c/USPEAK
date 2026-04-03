@@ -10,15 +10,18 @@ from fastapi import UploadFile, File
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler   # ← switched to Async
 from datetime import datetime
 from feedback import analyze_speech_full
+
 # Load environment variables
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 print(f"Loading .env from: {env_path}")
 load_dotenv(env_path)
 
-from auth import router as auth_router 
+from auth import router as auth_router, get_db
+from reminders import router as reminders_router             # ← NEW
+
 api_key = os.getenv("GROQ_API_KEY")
 print(f"GROQ_API_KEY loaded: {api_key[:10]}..." if api_key else "GROQ_API_KEY not found")
 
@@ -33,9 +36,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 app.include_router(auth_router)
-class VibeRequest(BaseModel):
-    vibe: str
+app.include_router(reminders_router)                         # ← NEW
+
+# ── EMAIL SENDER ─────────────────────────────────────────
 
 def send_email(to_email: str):
     sender = os.getenv("GMAIL_USER")
@@ -50,20 +55,11 @@ def send_email(to_email: str):
 <!DOCTYPE html>
 <html>
 <body style="margin:0; padding:0; background-color:#0a0a0a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
-
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a0a; padding: 40px 20px;">
     <tr>
       <td align="center">
-
-        <!-- CARD -->
         <table width="480" cellpadding="0" cellspacing="0" style="background-color:#111315; border-radius:16px; overflow:hidden;">
-
-          <!-- RED TOP BAR -->
-          <tr>
-            <td style="background-color:#c0392b; height:4px;"></td>
-          </tr>
-
-          <!-- HEADER -->
+          <tr><td style="background-color:#c0392b; height:4px;"></td></tr>
           <tr>
             <td style="padding: 36px 40px 0px 40px;">
               <p style="margin:0; font-size:22px; font-weight:700; color:#ffffff; letter-spacing:1px;">
@@ -71,8 +67,6 @@ def send_email(to_email: str):
               </p>
             </td>
           </tr>
-
-          <!-- BODY -->
           <tr>
             <td style="padding: 28px 40px 12px 40px;">
               <h1 style="margin:0 0 16px 0; font-size:26px; font-weight:700; color:#ffffff; line-height:1.3;">
@@ -84,8 +78,6 @@ def send_email(to_email: str):
               <p style="margin:0 0 24px 0; font-size:15px; color:#a0a0a0; line-height:1.7;">
                 Today's session doesn't have to be perfect. It just has to happen.
               </p>
-
-              <!-- QUOTE BOX -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background-color:#1a1d20; border-left: 3px solid #c0392b; border-radius:0 8px 8px 0; padding:16px 20px;">
@@ -98,8 +90,6 @@ def send_email(to_email: str):
               </table>
             </td>
           </tr>
-
-          <!-- CTA BUTTON -->
           <tr>
             <td style="padding: 28px 40px;">
               <table cellpadding="0" cellspacing="0">
@@ -114,15 +104,11 @@ def send_email(to_email: str):
               </table>
             </td>
           </tr>
-
-          <!-- DIVIDER -->
           <tr>
             <td style="padding: 0 40px;">
               <hr style="border:none; border-top:1px solid #1f2224; margin:0;">
             </td>
           </tr>
-
-          <!-- FOOTER -->
           <tr>
             <td style="padding: 24px 40px 36px 40px;">
               <p style="margin:0; font-size:12px; color:#444; line-height:1.6;">
@@ -131,78 +117,77 @@ def send_email(to_email: str):
               </p>
             </td>
           </tr>
-
         </table>
-        <!-- END CARD -->
-
       </td>
     </tr>
   </table>
-
 </body>
 </html>
 """
-
     msg.attach(MIMEText(html, "html"))
-
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
         server.starttls()
         server.login(sender, password)
         server.sendmail(sender, to_email, msg.as_string())
 
-class SettingsRequest(BaseModel):
-    email: str
-    time: str  # HH:MM
 
+# ── SCHEDULER (reads from MongoDB) ───────────────────────
 
-last_sent_date = None
-
-def reminder_job():
-    global last_sent_date
-
-    settings = load_settings()
-    email = settings.get("email")
-    time_str = settings.get("time")
-    last_sent_date = settings.get("last_sent_date")  # ← read from file
-
-    if not email or not time_str:
-        return
-
+async def reminder_job():
+    """
+    Runs every minute. Scans all active reminders in MongoDB.
+    Sends email if current time >= scheduled time and not already sent today.
+    Works for every user independently.
+    """
+    db = get_db()
     now = datetime.now()
     current_time = now.strftime("%H:%M")
     today = now.strftime("%Y-%m-%d")
 
-    if current_time >= time_str and last_sent_date != today:
-        print("📧 Sending daily reminder email...")
-        send_email(email)
-        # ← write back to file so restart doesn't forget
-        settings["last_sent_date"] = today
-        save_settings_to_file(settings)
+    # Fetch all active reminders
+    cursor = db.reminders.find({"is_active": True})
+    reminders = await cursor.to_list(length=1000)
 
-import json
+    for reminder in reminders:
+        scheduled_time = reminder.get("time")
+        last_sent = reminder.get("last_sent_date")
+        email = reminder.get("email")
 
-SETTINGS_FILE = "settings.json"
+        if not scheduled_time or not email:
+            continue
 
-def load_settings():
-    if os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, "r") as f:
-            return json.load(f)
-    return {"email": None, "time": None}
+        # Send if: current time has passed scheduled time AND not yet sent today
+        if current_time >= scheduled_time and last_sent != today:
+            try:
+                print(f"📧 Sending reminder to {email} (scheduled: {scheduled_time})")
+                send_email(email)
 
-def save_settings_to_file(data):
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(data, f)
-user_settings = load_settings()
-scheduler = BackgroundScheduler()
+                # Mark as sent for today so we don't double-send
+                await db.reminders.update_one(
+                    {"_id": reminder["_id"]},
+                    {"$set": {"last_sent_date": today}}
+                )
+            except Exception as e:
+                print(f"❌ Failed to send reminder to {email}: {e}")
+
+
+scheduler = AsyncIOScheduler()
 scheduler.add_job(reminder_job, "interval", minutes=1)
-scheduler.start()
 
-@app.post("/save-settings")
-def save_settings(data: SettingsRequest):
-    user_settings["email"] = data.email
-    user_settings["time"] = data.time
-    save_settings_to_file(user_settings)
-    return {"status": "saved"}
+@app.on_event("startup")
+async def startup():
+    scheduler.start()
+    print("✅ Reminder scheduler started (MongoDB-backed)")
+
+@app.on_event("shutdown")
+async def shutdown():
+    scheduler.shutdown()
+
+
+# ── ROUTES ────────────────────────────────────────────────
+
+class VibeRequest(BaseModel):
+    vibe: str
 
 
 @app.post("/generate-topic")
@@ -277,6 +262,7 @@ Generate the topic now:
     topic = completion.choices[0].message.content.strip()
     return {"topic": topic}
 
+
 import subprocess
 
 @app.post("/transcribe")
@@ -285,7 +271,6 @@ async def transcribe_video(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, temp_video)
         video_path = temp_video.name
 
-    # Extract audio only (much smaller than video)
     audio_path = video_path.replace(".mp4", ".mp3")
     subprocess.run([
         "ffmpeg", "-i", video_path,
@@ -308,22 +293,17 @@ async def transcribe_video(file: UploadFile = File(...)):
     return {"transcript": transcript}
 
 
-
-# ── Replace your AnalysisRequest class and /analyze route in main.py ──
-
 class AnalysisRequest(BaseModel):
     transcript: str
-    body_language_score: float = 5.0  # default 5 if not provided
+    body_language_score: float = 5.0
 
 @app.post("/analyze")
 def analyze_speech(data: AnalysisRequest):
     transcript = data.transcript
-    # This is the score MediaPipe calculated in your browser!
-    body_language_score = data.body_language_score 
+    body_language_score = data.body_language_score
 
     if not transcript or len(transcript.strip()) < 10:
         return {"error": "Transcript too short"}
 
-    # Pass the score to your feedback logic
     result = analyze_speech_full(transcript, client, data.body_language_score)
     return result

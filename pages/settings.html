@@ -52,15 +52,12 @@
     .logo .u { color: var(--accent); }
 
     .close-btn {
-      width: 34px;
-      height: 34px;
+      width: 34px; height: 34px;
       border-radius: 8px;
       border: 1px solid var(--border);
       background: transparent;
       color: var(--muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       cursor: pointer;
       text-decoration: none;
       font-size: 0.75rem;
@@ -115,8 +112,7 @@
     .field-input::placeholder { color: #333; }
 
     input[type="time"]::-webkit-calendar-picker-indicator {
-      filter: invert(0.3);
-      cursor: pointer;
+      filter: invert(0.3); cursor: pointer;
     }
 
     .length-options { display: flex; gap: 0.6rem; }
@@ -136,14 +132,50 @@
       cursor: pointer;
       transition: border-color 0.2s, color 0.2s, background 0.2s;
     }
-
     .length-option input:checked + .length-pill {
       border-color: var(--accent);
       color: var(--accent);
       background: rgba(230,57,70,0.06);
     }
-
     .length-pill:hover { border-color: #333; color: #888; }
+
+    /* Toggle switch for active/inactive */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.875rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .toggle-label { font-size: 0.875rem; color: #aaa; }
+    .toggle {
+      position: relative;
+      width: 42px; height: 24px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0;
+      background: #2a2a2a;
+      border-radius: 24px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .slider:before {
+      content: '';
+      position: absolute;
+      width: 18px; height: 18px;
+      left: 3px; bottom: 3px;
+      background: #666;
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle input:checked + .slider { background: rgba(230,57,70,0.2); }
+    .toggle input:checked + .slider:before {
+      transform: translateX(18px);
+      background: var(--accent);
+    }
 
     .divider {
       border: none;
@@ -167,9 +199,7 @@
       text-transform: uppercase;
       text-decoration: none;
       text-align: center;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       transition: border-color 0.2s, color 0.2s;
     }
     .btn-secondary:hover { border-color: #333; color: #888; }
@@ -188,13 +218,12 @@
       text-transform: uppercase;
       cursor: pointer;
       transition: opacity 0.2s, transform 0.15s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       gap: 8px;
     }
     .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
     .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
     .toast {
       position: fixed;
@@ -213,9 +242,28 @@
       white-space: nowrap;
       z-index: 100;
     }
-    .toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .status-active {
+      background: rgba(34,197,94,0.1);
+      color: #22c55e;
+      border: 1px solid rgba(34,197,94,0.2);
+    }
+    .status-inactive {
+      background: rgba(100,100,100,0.1);
+      color: #555;
+      border: 1px solid #222;
     }
 
     @keyframes riseIn {
@@ -239,6 +287,16 @@
     <!-- TITLE -->
     <h1 class="page-title">Settings.</h1>
     <p class="page-subtitle">Customize your practice experience</p>
+
+    <!-- REMINDER STATUS (shown if reminder exists) -->
+    <div id="reminderStatus" style="display:none; margin-bottom:1.5rem;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:0.75rem 1rem; background:#0f0f0f; border:1px solid #1a1a1a; border-radius:10px;">
+        <span style="font-size:0.8rem; color:#555;">Reminder status</span>
+        <span id="statusBadge" class="status-badge status-active">
+          <i class="fa-solid fa-circle" style="font-size:0.45rem;"></i> Active
+        </span>
+      </div>
+    </div>
 
     <!-- EMAIL -->
     <div class="field-group">
@@ -271,6 +329,18 @@
       </div>
     </div>
 
+    <!-- ACTIVE TOGGLE -->
+    <div class="field-group">
+      <label class="field-label">Reminder On/Off</label>
+      <div class="toggle-row">
+        <span class="toggle-label">Send me daily reminders</span>
+        <label class="toggle">
+          <input type="checkbox" id="activeToggle" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
     <hr class="divider" />
 
     <!-- BUTTONS -->
@@ -287,45 +357,21 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    window.addEventListener("load", () => {
-      const savedEmail  = localStorage.getItem("email");
-      const savedTime   = localStorage.getItem("time");
-      const savedLength = localStorage.getItem("sessionLength");
+    const API = "http://127.0.0.1:8000";
+    let currentReminderId = null;   // stores existing reminder _id if found
 
-      if (savedEmail) document.getElementById("emailInput").value = savedEmail;
-      if (savedTime)  document.getElementById("timeInput").value  = savedTime;
-      if (savedLength) {
-        const radio = document.querySelector(`input[name="length"][value="${savedLength}"]`);
-        if (radio) radio.checked = true;
-      }
-    });
+    // ── HELPERS ───────────────────────────────────────────
 
-    document.getElementById("saveBtn").addEventListener("click", async () => {
-      const email       = document.getElementById("emailInput").value.trim();
-      const time        = document.getElementById("timeInput").value;
-      const lengthInput = document.querySelector('input[name="length"]:checked');
+    function getToken() {
+      return localStorage.getItem("token");
+    }
 
-      if (!email || !time || !lengthInput) {
-        showToast("⚠ Please fill all fields");
-        return;
-      }
-
-      localStorage.setItem("email", email);
-      localStorage.setItem("time", time);
-      localStorage.setItem("sessionLength", lengthInput.value);
-
-      try {
-        const res = await fetch("http://127.0.0.1:8000/save-settings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, time })
-        });
-        const data = await res.json();
-        if (data.status === "saved") showToast("✓ Settings saved");
-      } catch (err) {
-        showToast("✓ Saved locally");
-      }
-    });
+    function authHeaders() {
+      return {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getToken()}`
+      };
+    }
 
     function showToast(msg) {
       const toast = document.getElementById("toast");
@@ -333,6 +379,114 @@
       toast.classList.add("show");
       setTimeout(() => toast.classList.remove("show"), 2500);
     }
+
+    function applyReminderToUI(reminder) {
+      if (!reminder) return;
+
+      currentReminderId = reminder.id;
+
+      document.getElementById("emailInput").value = reminder.email || "";
+      document.getElementById("timeInput").value  = reminder.time  || "";
+      document.getElementById("activeToggle").checked = reminder.is_active !== false;
+
+      const len = String(reminder.session_length || 2);
+      const radio = document.querySelector(`input[name="length"][value="${len}"]`);
+      if (radio) radio.checked = true;
+
+      // Show status badge
+      const statusDiv = document.getElementById("reminderStatus");
+      statusDiv.style.display = "block";
+
+      const badge = document.getElementById("statusBadge");
+      if (reminder.is_active) {
+        badge.className = "status-badge status-active";
+        badge.innerHTML = `<i class="fa-solid fa-circle" style="font-size:0.45rem;"></i> Active`;
+      } else {
+        badge.className = "status-badge status-inactive";
+        badge.innerHTML = `<i class="fa-solid fa-circle" style="font-size:0.45rem;"></i> Paused`;
+      }
+    }
+
+    // ── LOAD EXISTING SETTINGS ON PAGE LOAD ───────────────
+
+    async function loadSettings() {
+      const token = getToken();
+      if (!token) return;  // not logged in, show empty form
+
+      try {
+        const res = await fetch(`${API}/reminders/`, {
+          headers: authHeaders()
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (data.reminder) {
+          applyReminderToUI(data.reminder);
+        }
+      } catch (err) {
+        console.warn("Could not load reminder settings:", err);
+      }
+    }
+
+    // ── SAVE ──────────────────────────────────────────────
+
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      const email       = document.getElementById("emailInput").value.trim();
+      const time        = document.getElementById("timeInput").value;
+      const lengthInput = document.querySelector('input[name="length"]:checked');
+      const isActive    = document.getElementById("activeToggle").checked;
+
+      if (!email || !time || !lengthInput) {
+        showToast("⚠ Please fill all fields");
+        return;
+      }
+
+      const token = getToken();
+      if (!token) {
+        showToast("⚠ Please log in first");
+        return;
+      }
+
+      const saveBtn = document.getElementById("saveBtn");
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="font-size:0.75rem;"></i> Saving...`;
+
+      try {
+        const res = await fetch(`${API}/reminders/`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            email,
+            time,
+            session_length: parseInt(lengthInput.value),
+            repeat: "daily",
+            is_active: isActive
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          showToast(`❌ ${err.detail || "Failed to save"}`);
+          return;
+        }
+
+        const data = await res.json();
+        applyReminderToUI(data.reminder);
+
+        showToast("✓ Settings saved to your account");
+
+      } catch (err) {
+        showToast("❌ Network error — check if backend is running");
+        console.error(err);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = `Save Settings <i class="fa-solid fa-check" style="font-size:0.75rem;"></i>`;
+      }
+    });
+
+    // ── INIT ──────────────────────────────────────────────
+    window.addEventListener("load", loadSettings);
   </script>
 </body>
 </html>
