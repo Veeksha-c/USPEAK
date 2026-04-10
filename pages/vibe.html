@@ -237,6 +237,16 @@
 
     <!-- VIBE LIST -->
     <div id="vibeList">
+      <button class="vibe-card" onclick="goProject()" style="border-color: rgba(230,57,70,0.2); background: rgba(230,57,70,0.03);">
+  <div class="vibe-icon" style="background: rgba(230,57,70,0.1); border-color: rgba(230,57,70,0.2);">
+    <i class="fa-solid fa-diagram-project"></i>
+  </div>
+  <div style="flex:1;">
+    <div class="vibe-label">Project Explanation</div>
+    <div style="font-size:0.7rem; color:#444; margin-top:2px; font-weight:300;">HR simulation · Interview Q&amp;A</div>
+  </div>
+  <i class="fa-solid fa-chevron-right vibe-arrow"></i>
+</button>
       <button class="vibe-card" onclick="selectVibe('personal')">
         <div class="vibe-icon"><i class="fa-solid fa-user"></i></div>
         <span class="vibe-label">Personal Life</span>
@@ -310,5 +320,10 @@
       }
     }
   </script>
+  <script>
+function goProject() {
+  window.location.href = "./project-rant.html";
+}
+</script>
 </body>
 </html>

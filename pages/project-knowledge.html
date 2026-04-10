@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak – Knowledge Check</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e63946;
+      --text: #ffffff;
+      --muted: #555555;
+    }
+    * { box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0;
+    }
+
+    .page-wrap {
+      position: relative; z-index: 1;
+      max-width: 520px; margin: 0 auto;
+      min-height: 100vh;
+      padding: 2rem 1.5rem 3rem;
+      display: flex; flex-direction: column;
+    }
+
+    .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; }
+    .logo .u { color: var(--accent); }
+
+    /* Eyebrow */
+    .eyebrow {
+      font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--accent); font-weight: 500;
+      margin-top: 2rem; margin-bottom: 0.4rem;
+      opacity: 0; animation: riseIn 0.5s ease 0.1s forwards;
+    }
+
+    .page-title {
+      font-family: 'Syne', sans-serif; font-weight: 800;
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      letter-spacing: -0.03em; line-height: 1.05;
+      margin-bottom: 2rem;
+      opacity: 0; animation: riseIn 0.5s ease 0.15s forwards;
+    }
+
+    /* Big score ring */
+    .score-ring-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      margin-bottom: 2rem;
+      opacity: 0; animation: riseIn 0.6s ease 0.2s forwards;
+    }
+
+    .ring-container {
+      position: relative; width: 160px; height: 160px;
+    }
+
+    .ring-svg { transform: rotate(-90deg); }
+
+    .ring-track {
+      fill: none; stroke: #1a1a1a; stroke-width: 10;
+    }
+
+    .ring-fill {
+      fill: none; stroke-width: 10;
+      stroke-linecap: round;
+      stroke-dasharray: 408;
+      stroke-dashoffset: 408;
+      transition: stroke-dashoffset 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .ring-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 2px;
+    }
+
+    .ring-score {
+      font-family: 'Syne', sans-serif; font-weight: 800;
+      font-size: 2.6rem; letter-spacing: -0.04em; line-height: 1;
+    }
+
+    .ring-denom {
+      font-size: 0.75rem; color: var(--muted); font-weight: 400;
+      letter-spacing: 0.05em;
+    }
+
+    .verdict-badge {
+      margin-top: 1.25rem;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 0.5rem 1.25rem;
+      border-radius: 999px;
+      font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+
+    .verdict-badge.strong {
+      background: rgba(34,197,94,0.08);
+      border: 1px solid rgba(34,197,94,0.2);
+      color: #22c55e;
+    }
+    .verdict-badge.decent {
+      background: rgba(245,158,11,0.08);
+      border: 1px solid rgba(245,158,11,0.2);
+      color: #f59e0b;
+    }
+    .verdict-badge.needs-work {
+      background: rgba(230,57,70,0.08);
+      border: 1px solid rgba(230,57,70,0.2);
+      color: var(--accent);
+    }
+
+    .verdict-dot {
+      width: 7px; height: 7px; border-radius: 50;
+      background: currentColor; border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Verdict description */
+    .verdict-desc {
+      text-align: center;
+      font-size: 0.85rem; color: #888; line-height: 1.6;
+      max-width: 360px; margin: 0 auto;
+      margin-top: 0.875rem;
+      opacity: 0; animation: riseIn 0.5s ease 0.3s forwards;
+    }
+
+    /* Divider */
+    .divider {
+      border: none; border-top: 1px solid var(--border);
+      margin: 1.75rem 0;
+      opacity: 0; animation: riseIn 0.4s ease 0.35s forwards;
+    }
+
+    /* Gaps section */
+    .gaps-title {
+      font-size: 0.68rem; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--muted); font-weight: 500; margin-bottom: 1rem;
+      opacity: 0; animation: riseIn 0.4s ease 0.38s forwards;
+    }
+
+    .gap-card {
+      display: flex; gap: 0.875rem; align-items: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.125rem;
+      margin-bottom: 0.625rem;
+      opacity: 0;
+    }
+    .gap-card:nth-child(1) { animation: riseIn 0.45s ease 0.42s forwards; }
+    .gap-card:nth-child(2) { animation: riseIn 0.45s ease 0.48s forwards; }
+    .gap-card:nth-child(3) { animation: riseIn 0.45s ease 0.54s forwards; }
+    .gap-card:nth-child(4) { animation: riseIn 0.45s ease 0.60s forwards; }
+
+    .gap-icon {
+      width: 28px; height: 28px; min-width: 28px;
+      border-radius: 8px;
+      background: rgba(230,57,70,0.08);
+      border: 1px solid rgba(230,57,70,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; color: var(--accent);
+      margin-top: 1px;
+    }
+
+    .gap-text {
+      font-size: 0.855rem; color: #bbb; line-height: 1.55; font-weight: 300;
+    }
+
+    /* Empty state */
+    .no-gaps {
+      text-align: center; padding: 1.5rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 0.85rem; color: #555;
+      opacity: 0; animation: riseIn 0.45s ease 0.42s forwards;
+    }
+
+    /* Button */
+    .btn-row {
+      display: flex; gap: 0.75rem;
+      margin-top: auto; padding-top: 2rem;
+      opacity: 0; animation: riseIn 0.5s ease 0.65s forwards;
+    }
+
+    .btn-secondary {
+      flex: 1; padding: 0.9rem;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 12px; color: var(--muted);
+      font-family: 'DM Sans', sans-serif; font-size: 0.78rem;
+      font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
+      text-align: center; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      text-decoration: none; display: flex; align-items: center; justify-content: center;
+    }
+    .btn-secondary:hover { border-color: #333; color: #888; }
+
+    .btn-primary {
+      flex: 2; padding: 0.9rem;
+      background: var(--accent); border: none;
+      border-radius: 12px; color: #fff;
+      font-family: 'DM Sans', sans-serif; font-size: 0.85rem;
+      font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+
+    <div class="logo"><span class="u">U</span><span style="color:#fff">SPEAK</span></div>
+
+    <p class="eyebrow">Knowledge Check</p>
+    <h1 class="page-title">How well do you<br/>know your project?</h1>
+
+    <!-- SCORE RING -->
+    <div class="score-ring-wrap">
+      <div class="ring-container">
+        <svg class="ring-svg" width="160" height="160" viewBox="0 0 160 160">
+          <circle class="ring-track" cx="80" cy="80" r="65"/>
+          <circle class="ring-fill" id="ringFill" cx="80" cy="80" r="65"/>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-score" id="knowledgeScore">–</span>
+          <span class="ring-denom">out of 10</span>
+        </div>
+      </div>
+      <div class="verdict-badge" id="verdictBadge">
+        <div class="verdict-dot"></div>
+        <span id="verdictText">–</span>
+      </div>
+    </div>
+
+    <p class="verdict-desc" id="verdictDesc"></p>
+
+    <hr class="divider" />
+
+    <p class="gaps-title">Areas to strengthen</p>
+    <div id="gapsList"></div>
+
+    <!-- BUTTONS -->
+    <div class="btn-row">
+      <a href="./project-qa.html" class="btn-secondary">← Redo Q&A</a>
+      <button class="btn-primary" onclick="window.location.href='./project-report.html'">
+        Full Report
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    const raw = localStorage.getItem("projectAnalysis");
+    if (!raw) {
+      alert("No analysis found. Please complete a session first.");
+      window.location.href = "./vibe.html";
+    }
+
+    const analysis = JSON.parse(raw);
+
+    // ── KNOWLEDGE SCORE ───────────────────────────────────
+    // Derived from qa_scores: avg of relevance + depth (how well they know it)
+    const qs = analysis.qa_scores || {};
+    const knowledgeScore = analysis.knowledge_score ||
+      Math.round(((( qs.relevance || 5) + (qs.depth || 5)) / 2) * 10) / 10;
+
+    document.getElementById("knowledgeScore").textContent = knowledgeScore;
+
+    // ── RING ANIMATION ────────────────────────────────────
+    const circumference = 2 * Math.PI * 65; // 408.4
+    const ringFill = document.getElementById("ringFill");
+
+    // Color based on score
+    let ringColor, verdictClass, verdictLabel, verdictDesc;
+
+    if (knowledgeScore >= 7.5) {
+      ringColor    = "#22c55e";
+      verdictClass = "strong";
+      verdictLabel = "Strong Project Knowledge";
+      verdictDesc  = "You clearly understand what you built — your answers were relevant and showed real depth. Keep this up in actual interviews.";
+    } else if (knowledgeScore >= 5) {
+      ringColor    = "#f59e0b";
+      verdictClass = "decent";
+      verdictLabel = "Decent Grasp";
+      verdictDesc  = "You have a reasonable understanding but some answers lacked depth or missed the point of the question. A bit more preparation will make a big difference.";
+    } else {
+      ringColor    = "#e63946";
+      verdictClass = "needs-work";
+      verdictLabel = "Needs More Prep";
+      verdictDesc  = "Your answers suggest you may not yet be fully comfortable explaining the details of your project. Revisit the technical parts and practice talking through them out loud.";
+    }
+
+    ringFill.style.stroke = ringColor;
+
+    // Animate ring after paint
+    setTimeout(() => {
+      const offset = circumference - (knowledgeScore / 10) * circumference;
+      ringFill.style.strokeDashoffset = offset;
+    }, 300);
+
+    // ── VERDICT BADGE ─────────────────────────────────────
+    const badge = document.getElementById("verdictBadge");
+    badge.classList.add(verdictClass);
+    document.getElementById("verdictText").textContent = verdictLabel;
+    document.getElementById("verdictDesc").textContent = verdictDesc;
+
+    // ── KNOWLEDGE GAPS ────────────────────────────────────
+    const gapsList = document.getElementById("gapsList");
+    const gaps = analysis.knowledge_gaps || [];
+
+    if (gaps.length === 0) {
+      gapsList.innerHTML = `
+        <div class="no-gaps">
+          No major knowledge gaps detected — good work! 🎉
+        </div>`;
+    } else {
+      gaps.forEach((gap, i) => {
+        const div = document.createElement("div");
+        div.className = "gap-card";
+        div.style.animationDelay = `${0.42 + i * 0.06}s`;
+        div.innerHTML = `
+          <div class="gap-icon">↗</div>
+          <p class="gap-text">${gap}</p>
+        `;
+        gapsList.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>

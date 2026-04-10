@@ -110,6 +110,20 @@
       font-weight: 300;
     }
 
+    /* Loading skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, #1a1a1a 25%, #222 50%, #1a1a1a 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+      border-radius: 8px;
+      height: 140px;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
     .streak-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -211,6 +225,18 @@
 
     .streak-box:hover::after { opacity: 1; }
 
+    /* Error banner */
+    .error-banner {
+      background: rgba(230,57,70,0.08);
+      border: 1px solid rgba(230,57,70,0.2);
+      border-radius: 12px;
+      padding: 1rem;
+      color: #e63946;
+      font-size: 0.8rem;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
     .btn-primary {
       width: 100%;
       padding: 1rem;
@@ -246,23 +272,28 @@
     <h1 class="page-title">The Receipts.</h1>
     <p class="page-subtitle">Your progress over time</p>
 
+    <!-- Error banner (shown if not logged in or fetch fails) -->
+    <div class="error-banner" id="errorBanner"></div>
+
     <!-- GRAPH -->
     <div class="graph-card">
       <div class="graph-header">
         <span class="graph-title">Progress Chart</span>
-        <span class="graph-count" id="sessionCount">0 sessions</span>
+        <span class="graph-count" id="sessionCount">Loading...</span>
       </div>
+      <!-- Skeleton shown while loading -->
+      <div class="skeleton" id="graphSkeleton"></div>
       <div id="emptyGraph" class="empty-state" style="display:none;">
         No sessions yet — record your first one!
       </div>
-      <canvas id="progressChart" height="140"></canvas>
+      <canvas id="progressChart" height="140" style="display:none;"></canvas>
     </div>
 
     <!-- STREAK -->
     <div class="streak-card">
       <div class="streak-header">
         <span class="graph-title">Monthly Streak</span>
-        <span class="streak-count-badge" id="streakBadge">0 days</span>
+        <span class="streak-count-badge" id="streakBadge">— days</span>
       </div>
       <p class="month-label" id="monthLabel"></p>
       <div class="day-labels">
@@ -281,72 +312,128 @@
   </div>
 
   <script>
-    const sessions = JSON.parse(localStorage.getItem("sessions")) || [];
+    const API = "http://127.0.0.1:8000";
 
-    document.getElementById("sessionCount").textContent =
-      `${sessions.length} session${sessions.length !== 1 ? "s" : ""}`;
+    // ── AUTH CHECK ────────────────────────────────────────
+    const token = localStorage.getItem("token");
+    if (!token) {
+      // Not logged in — redirect to login
+      window.location.href = "./login.html";
+    }
 
-    // Graph
-    const ctx = document.getElementById("progressChart");
-    if (sessions.length === 0) {
-      ctx.style.display = "none";
-      document.getElementById("emptyGraph").style.display = "block";
-    } else {
-      new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: sessions.map((_, i) => `S${i + 1}`),
-          datasets: [{
-            data: sessions.map(s => s.avgScore),
-            borderColor: "#e63946",
-            pointBackgroundColor: "#e63946",
-            pointRadius: 5,
-            pointHoverRadius: 7,
-            tension: 0.4,
-            fill: false,
-            borderWidth: 2
-          }]
-        },
-        options: {
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { color: "#444", font: { size: 11 } }, grid: { color: "#161616" } },
-            y: { min: 0, max: 10, ticks: { color: "#444", stepSize: 2, font: { size: 11 } }, grid: { color: "#161616" } }
+    // ── FETCH SESSIONS FROM BACKEND ───────────────────────
+    async function loadSessions() {
+      try {
+        const res = await fetch(`${API}/sessions`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
           }
+        });
+
+        if (res.status === 401) {
+          // Token expired or invalid — clear and redirect
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "./login.html";
+          return;
         }
-      });
+
+        if (!res.ok) {
+          throw new Error(`Server error: ${res.status}`);
+        }
+
+        const data = await res.json();
+        renderPage(data.sessions);
+
+      } catch (err) {
+        showError("Couldn't load your sessions. Is the backend running?");
+        renderPage([]);   // show empty state gracefully
+      }
     }
 
-    // Streak
-    const attendedDates = sessions.map(s => s.date);
-    const uniqueDays = [...new Set(attendedDates)].length;
-    document.getElementById("streakBadge").textContent = `${uniqueDays} day${uniqueDays !== 1 ? "s" : ""}`;
+    // ── RENDER ────────────────────────────────────────────
+    function renderPage(sessions) {
+      // Hide skeleton
+      document.getElementById("graphSkeleton").style.display = "none";
 
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const todayStr = today.toISOString().split("T")[0];
-    const monthNames = ["January","February","March","April","May","June",
-                        "July","August","September","October","November","December"];
-    document.getElementById("monthLabel").textContent = `${monthNames[month]} ${year}`;
+      // Session count badge
+      document.getElementById("sessionCount").textContent =
+        `${sessions.length} session${sessions.length !== 1 ? "s" : ""}`;
 
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfWeek = new Date(year, month, 1).getDay();
-    const grid = document.getElementById("streakGrid");
+      // ── GRAPH ──
+      const ctx = document.getElementById("progressChart");
+      if (sessions.length === 0) {
+        document.getElementById("emptyGraph").style.display = "block";
+      } else {
+        ctx.style.display = "block";
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: sessions.map((_, i) => `S${i + 1}`),
+            datasets: [{
+              data: sessions.map(s => s.avgScore),
+              borderColor: "#e63946",
+              pointBackgroundColor: "#e63946",
+              pointRadius: 5,
+              pointHoverRadius: 7,
+              tension: 0.4,
+              fill: false,
+              borderWidth: 2
+            }]
+          },
+          options: {
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { color: "#444", font: { size: 11 } }, grid: { color: "#161616" } },
+              y: { min: 0, max: 10, ticks: { color: "#444", stepSize: 2, font: { size: 11 } }, grid: { color: "#161616" } }
+            }
+          }
+        });
+      }
 
-    // Padding before first day
-    for (let i = 0; i < firstDayOfWeek; i++) {
-      grid.appendChild(document.createElement("div"));
+      // ── STREAK ──
+      const attendedDates = sessions.map(s => s.date);
+      const uniqueDays = [...new Set(attendedDates)].length;
+      document.getElementById("streakBadge").textContent =
+        `${uniqueDays} day${uniqueDays !== 1 ? "s" : ""}`;
+
+      const today = new Date();
+      const year  = today.getFullYear();
+      const month = today.getMonth();
+      const todayStr = today.toISOString().split("T")[0];
+
+      const monthNames = ["January","February","March","April","May","June",
+                          "July","August","September","October","November","December"];
+      document.getElementById("monthLabel").textContent = `${monthNames[month]} ${year}`;
+
+      const daysInMonth   = new Date(year, month + 1, 0).getDate();
+      const firstDayOfWeek = new Date(year, month, 1).getDay();
+      const grid = document.getElementById("streakGrid");
+
+      // Padding before first day
+      for (let i = 0; i < firstDayOfWeek; i++) {
+        grid.appendChild(document.createElement("div"));
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+        const box = document.createElement("div");
+        box.className = "streak-box " + (attendedDates.includes(dateStr) ? "attended" : "missed");
+        if (dateStr === todayStr) box.classList.add("today");
+        box.setAttribute("data-date", dateStr);
+        grid.appendChild(box);
+      }
     }
 
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-      const box = document.createElement("div");
-      box.className = "streak-box " + (attendedDates.includes(dateStr) ? "attended" : "missed");
-      if (dateStr === todayStr) box.classList.add("today");
-      box.setAttribute("data-date", dateStr);
-      grid.appendChild(box);
+    // ── ERROR BANNER ──────────────────────────────────────
+    function showError(msg) {
+      const banner = document.getElementById("errorBanner");
+      banner.textContent = msg;
+      banner.style.display = "block";
     }
+
+    // ── KICK OFF ──────────────────────────────────────────
+    loadSessions();
   </script>
 </body>
 </html>

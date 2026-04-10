@@ -423,6 +423,7 @@
         const data = await res.json();
         if (data.reminder) {
           applyReminderToUI(data.reminder);
+          localStorage.setItem("sessionLength", String(data.reminder.session_length || 2));
         }
       } catch (err) {
         console.warn("Could not load reminder settings:", err);
@@ -473,6 +474,7 @@
 
         const data = await res.json();
         applyReminderToUI(data.reminder);
+        localStorage.setItem("sessionLength", lengthInput.value);
 
         showToast("✓ Settings saved to your account");
 

@@ -340,57 +340,69 @@
     const analysis = JSON.parse(raw);
     const scores = analysis.scores;
 
-    // Overall score
-    // 1. Update the overall calculation to include body_language
-const overall = analysis.overall_score ||
-  Math.round(((scores.fluency + scores.clarity + scores.confidence +
-    scores.on_topic + scores.filler_words + (scores.body_language || 5)) / 6) * 10) / 10;
+    const overall = analysis.overall_score ||
+      Math.round(((scores.fluency + scores.clarity + scores.confidence +
+        scores.on_topic + scores.filler_words + (scores.body_language || 5)) / 6) * 10) / 10;
 
+    document.getElementById("overallScore").innerHTML = `${overall}<span>/10</span>`;
 
-    document.getElementById("overallScore").innerHTML =
-      `${overall}<span>/10</span>`;
-
-    // Session date
     const today = new Date();
     document.getElementById("sessionDate").textContent =
       today.toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long" });
 
-    // Helper: color class by score
     function colorClass(val) {
       if (val >= 8) return "good";
       if (val >= 5) return "mid";
       return "low";
     }
 
-const fields = [
-  { id: "fluency",      barId: "fluencyBar",      val: scores.fluency },
-  { id: "clarity",      barId: "clarityBar",      val: scores.clarity },
-  { id: "confidence",   barId: "confidenceBar",   val: scores.confidence },
-  { id: "topic",        barId: "topicBar",        val: scores.on_topic },
-  { id: "filler",       barId: "fillerBar",       val: scores.filler_words },
-  // ADD THIS LINE:
-  { id: "bodyLanguage", barId: "bodyBar",         val: scores.body_language },
-];
+    const fields = [
+      { id: "fluency",      barId: "fluencyBar",      val: scores.fluency },
+      { id: "clarity",      barId: "clarityBar",      val: scores.clarity },
+      { id: "confidence",   barId: "confidenceBar",   val: scores.confidence },
+      { id: "topic",        barId: "topicBar",        val: scores.on_topic },
+      { id: "filler",       barId: "fillerBar",       val: scores.filler_words },
+      { id: "bodyLanguage", barId: "bodyBar",         val: scores.body_language },
+    ];
 
     fields.forEach(({ id, barId, val }) => {
       const el  = document.getElementById(id);
       const bar = document.getElementById(barId);
       const cls = colorClass(val);
-
       el.textContent = val ?? "–";
       el.classList.add(cls);
       bar.classList.add(cls);
-
-      // Animate bar after paint
-      setTimeout(() => {
-        bar.style.width = `${(val / 10) * 100}%`;
-      }, 400);
+      setTimeout(() => { bar.style.width = `${(val / 10) * 100}%`; }, 400);
     });
 
-    // Overall bar
     setTimeout(() => {
       document.getElementById("overallBar").style.width = `${(overall / 10) * 100}%`;
     }, 300);
-  </script>
+
+    // ── SAVE SESSION ── wrapped in async IIFE, this is the fix
+    (async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;  // not logged in, skip silently
+      try {
+        const res = await fetch("http://127.0.0.1:8000/sessions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            avgScore: overall,
+            date: new Date().toISOString().split("T")[0],
+            vibe: analysis.vibe || null,
+            scores: scores   // send full scores object too
+          })
+        });
+        if (!res.ok) console.warn("Session save failed:", res.status);
+        else console.log("✅ Session saved to MongoDB");
+      } catch (e) {
+        console.warn("Session save error:", e);
+      }
+    })();
+</script>
 </body>
 </html>

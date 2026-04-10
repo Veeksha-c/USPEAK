@@ -95,6 +95,65 @@ body: JSON.stringify({
     }
 
     handleCallback();
+    async function handleCallback() {
+  // ── GUARD: prevent double execution ──────────────────
+  if (sessionStorage.getItem("oauth_processing")) {
+    console.log("Already processing, skipping.");
+    return;
+  }
+  sessionStorage.setItem("oauth_processing", "true");
+  // ─────────────────────────────────────────────────────
+
+  const params = new URLSearchParams(window.location.search);
+  const code   = params.get("code");
+  const state  = params.get("state");
+  const error  = params.get("error");
+
+  if (error) {
+    showError("Google sign-in was cancelled.");
+    setTimeout(() => window.location.href = "./login.html", 2000);
+    return;
+  }
+
+  const savedState = localStorage.getItem("oauth_state");
+  if (!code || state !== savedState) {
+    showError("Invalid OAuth state. Please try again.");
+    setTimeout(() => window.location.href = "./login.html", 2000);
+    return;
+  }
+
+  localStorage.removeItem("oauth_state");
+
+  try {
+    const res = await fetch(`${API}/auth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: code,
+        redirect_uri: "http://127.0.0.1:5500/pages/auth-callback.html"
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      sessionStorage.removeItem("oauth_processing");  // allow retry
+      showError(data.detail || "Google sign-in failed.");
+      setTimeout(() => window.location.href = "./login.html", 2000);
+      return;
+    }
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    sessionStorage.removeItem("oauth_processing");
+    window.location.href = "./vibe.html";
+
+  } catch (err) {
+    sessionStorage.removeItem("oauth_processing");  // allow retry
+    showError("Server unreachable. Please try again.");
+    setTimeout(() => window.location.href = "./login.html", 2000);
+  }
+}
   </script>
 </body>
 </html>

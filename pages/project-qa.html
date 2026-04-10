@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak – Q&A Round</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e63946;
+      --text: #ffffff;
+      --muted: #555555;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #000; font-family: 'DM Sans', sans-serif; color: var(--text); min-height: 100vh; overflow: hidden; }
+
+    #video { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; }
+    .overlay-top { position: fixed; top: 0; left: 0; right: 0; height: 260px; background: linear-gradient(to bottom, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.4) 70%, transparent 100%); z-index: 1; pointer-events: none; }
+    .overlay-bottom { position: fixed; bottom: 0; left: 0; right: 0; height: 320px; background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, transparent 100%); z-index: 1; pointer-events: none; }
+
+    /* Top section */
+    .top-section {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      padding: 1.5rem 1.75rem;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .top-row { display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; }
+    .logo .u { color: var(--accent); }
+
+    .progress-row {
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .progress-label {
+      font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(255,255,255,0.35); white-space: nowrap;
+    }
+    .progress-track {
+      flex: 1; height: 2px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--accent); border-radius: 999px;
+      transition: width 0.5s ease;
+    }
+
+    /* Question card */
+    .question-card {
+      position: fixed; top: 110px; left: 1.75rem; right: 1.75rem; z-index: 10;
+      background: rgba(10,10,10,0.82);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .question-card.fade-out { opacity: 0; transform: translateY(-8px); }
+    .q-eyebrow {
+      font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 0.5rem; font-weight: 500;
+    }
+    .q-text {
+      font-family: 'Syne', sans-serif; font-weight: 700;
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      line-height: 1.35; letter-spacing: -0.02em; color: #eee;
+    }
+
+    /* rec badge */
+    .rec-badge { position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 20; display: none; align-items: center; gap: 8px; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); border: 1px solid rgba(230,57,70,0.3); border-radius: 999px; padding: 0.4rem 1rem; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; }
+    .rec-badge.visible { display: flex; }
+    .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+
+    /* Bottom controls */
+    .bottom-controls {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+      padding: 1rem 1.75rem 2.5rem;
+      display: flex; flex-direction: column; align-items: center; gap: 0.875rem;
+    }
+    .timer-display { font-family: 'Syne', sans-serif; font-size: 0.9rem; letter-spacing: 0.15em; color: rgba(255,255,255,0.4); font-weight: 700; }
+
+    .record-btn { width: 68px; height: 68px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.15); background: rgba(230,57,70,0.15); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; }
+    .record-btn:hover { border-color: var(--accent); background: rgba(230,57,70,0.25); transform: scale(1.05); }
+    .record-btn.recording { background: var(--accent); border-color: var(--accent); animation: recordPulse 2s ease infinite; }
+    @keyframes recordPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(230,57,70,0.4); } 50% { box-shadow: 0 0 0 14px rgba(230,57,70,0); } }
+    .record-btn-inner { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); transition: border-radius 0.2s, width 0.2s, height 0.2s; }
+    .record-btn.recording .record-btn-inner { border-radius: 5px; width: 20px; height: 20px; background: #fff; }
+    .btn-label { font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-top: 0.35rem; text-align: center; }
+
+    /* Action buttons row after recording */
+    .action-row {
+      display: none; width: 100%; max-width: 340px; gap: 0.6rem;
+      flex-direction: row;
+    }
+    .action-row.visible { display: flex; }
+
+    .btn-skip {
+      flex: 1; padding: 0.8rem 0.5rem;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 12px; color: var(--muted);
+      font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
+      font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-skip:hover { border-color: #333; color: #888; }
+
+    .btn-submit {
+      flex: 2; padding: 0.8rem 0.5rem;
+      background: var(--accent); border: none;
+      border-radius: 12px; color: #fff;
+      font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
+      font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn-submit:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Spinner */
+    .spinner-wrap { display: none; flex-direction: column; align-items: center; gap: 0.6rem; }
+    .spinner-wrap.visible { display: flex; }
+    .spinner { width: 24px; height: 24px; border: 2px solid rgba(255,255,255,0.08); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .spinner-label { font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Final loading overlay */
+    .final-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.92); backdrop-filter: blur(12px);
+      z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
+    }
+    .final-overlay.visible { display: flex; }
+    .final-spinner { width: 36px; height: 36px; border: 2px solid #1f1f1f; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .final-label { font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #555; }
+
+    /* MP loading */
+    .mp-loading { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
+    .mp-loading.hidden { display: none; }
+    .mp-spinner { width: 32px; height: 32px; border: 2px solid #1f1f1f; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .mp-label { font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #444; }
+  </style>
+</head>
+<body>
+
+  <div class="mp-loading" id="mpLoading">
+    <div class="mp-spinner"></div>
+    <p class="mp-label">Loading camera...</p>
+  </div>
+
+  <video id="video" autoplay muted playsinline></video>
+  <div class="overlay-top"></div>
+  <div class="overlay-bottom"></div>
+
+  <!-- TOP UI -->
+  <div class="top-section">
+    <div class="top-row">
+      <div class="logo"><span class="u">U</span><span style="color:#fff">SPEAK</span></div>
+      <span style="font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.25);">Q&A Round</span>
+    </div>
+    <div class="progress-row">
+      <span class="progress-label" id="progressLabel">Q 1 / ?</span>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUESTION CARD -->
+  <div class="question-card" id="questionCard">
+    <div class="q-eyebrow">Coach's Question</div>
+    <p class="q-text" id="questionText">Loading questions...</p>
+  </div>
+
+  <!-- REC BADGE -->
+  <div class="rec-badge" id="recBadge">
+    <div class="rec-dot"></div>
+    <span>REC</span>
+    <span id="timer" style="color:rgba(255,255,255,0.5); margin-left:4px;">00:00</span>
+  </div>
+
+  <!-- BOTTOM CONTROLS -->
+  <div class="bottom-controls">
+    <div class="spinner-wrap" id="transcribeSpinner">
+      <div class="spinner"></div>
+      <p class="spinner-label">Transcribing answer...</p>
+    </div>
+    <div class="action-row" id="actionRow">
+      <button class="btn-skip" id="skipBtn">Skip →</button>
+      <button class="btn-submit" id="submitBtn">Submit Answer</button>
+    </div>
+    <div>
+      <div style="display:flex; justify-content:center;">
+        <button class="record-btn" id="recordBtn">
+          <div class="record-btn-inner"></div>
+        </button>
+      </div>
+      <p class="btn-label" id="btnLabel">Tap to answer</p>
+    </div>
+  </div>
+
+  <!-- FINAL ANALYSIS OVERLAY -->
+  <div class="final-overlay" id="finalOverlay">
+    <div class="final-spinner"></div>
+    <p class="final-label" id="finalLabel">Analyzing your session...</p>
+  </div>
+
+  <script>
+    // ── STATE ─────────────────────────────────────────────
+    const questions       = JSON.parse(localStorage.getItem("projectQuestions") || "[]");
+    const projectTranscript = localStorage.getItem("projectTranscript") || "";
+    const projectBodyScore  = parseFloat(localStorage.getItem("projectBodyScore") || "5");
+
+    let currentQ     = 0;
+    let qaAnswers    = [];   // { question, transcript, skipped }
+    let qaBodyScores = [];   // body language per answer
+
+    // Recording state
+    let stream, mediaRecorder, recordedChunks = [], isRecording = false;
+    let timerInterval, seconds = 0;
+    let bodySamples = [], lastLandmarks = null, sampleInterval = null;
+    let pendingTranscript = null;   // transcript after recording, before submit/skip
+
+    // DOM refs
+    const video           = document.getElementById("video");
+    const recordBtn       = document.getElementById("recordBtn");
+    const recBadge        = document.getElementById("recBadge");
+    const timerEl         = document.getElementById("timer");
+    const btnLabel        = document.getElementById("btnLabel");
+    const actionRow       = document.getElementById("actionRow");
+    const submitBtn       = document.getElementById("submitBtn");
+    const skipBtn         = document.getElementById("skipBtn");
+    const transcribeSpinner = document.getElementById("transcribeSpinner");
+    const progressLabel   = document.getElementById("progressLabel");
+    const progressFill    = document.getElementById("progressFill");
+    const questionText    = document.getElementById("questionText");
+    const questionCard    = document.getElementById("questionCard");
+    const finalOverlay    = document.getElementById("finalOverlay");
+    const finalLabel      = document.getElementById("finalLabel");
+    const mpLoading       = document.getElementById("mpLoading");
+
+    // Redirect if no questions
+    if (questions.length === 0) {
+      alert("No questions found. Please re-record your explanation.");
+      window.location.href = "./project-record.html";
+    }
+
+    // ── MEDIAPIPE ─────────────────────────────────────────
+    let holisticReady = false;
+    const holistic = new Holistic({
+  locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${f}`
+});
+    holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, refineFaceLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+holistic.onResults(r => { lastLandmarks = r; });
+
+// Start camera IMMEDIATELY — don't wait for Holistic
+async function startCamera() {
+    try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    video.srcObject = stream;
+    mpLoading.classList.add("hidden");   // ← hide loading as soon as camera is up
+
+    // Try to attach MediaPipe in background AFTER camera is running
+    holistic.initialize().then(() => {
+      holisticReady = true;
+      const mpCam = new Camera(video, {
+        onFrame: async () => { if (holisticReady) await holistic.send({ image: video }); },
+        width: 640, height: 480
+      });
+      mpCam.start();
+    }).catch(err => {
+      console.warn("MediaPipe failed, body scoring disabled:", err);
+      // Camera still works, body score will default to 5
+    });
+
+  } catch (err) {
+    mpLoading.classList.add("hidden");
+    alert("Camera or microphone access denied.");
+  }
+}
+
+startCamera();  // ← call directly, no waiting
+
+    // ── BODY SCORING ──────────────────────────────────────
+    function sampleBody() {
+      if (!lastLandmarks) return;
+      const r = lastLandmarks;
+      let p = 5, e = 5, g = 4;
+      if (r.poseLandmarks) {
+        const ls = r.poseLandmarks[11], rs = r.poseLandmarks[12];
+        if (ls && rs) p = Math.max(1, Math.min(10, Math.round(10 - Math.abs(ls.y - rs.y) * 80)));
+      }
+      if (r.faceLandmarks) {
+        const nose = r.faceLandmarks[1], lEye = r.faceLandmarks[33], rEye = r.faceLandmarks[263];
+        if (nose && lEye && rEye) {
+          const cx = (lEye.x + rEye.x) / 2, cy = (lEye.y + rEye.y) / 2;
+          e = Math.max(1, Math.min(10, Math.round(10 - (Math.abs(nose.x - cx) + Math.abs(nose.y - cy)) * 60)));
+        }
+      }
+      if (r.leftHandLandmarks || r.rightHandLandmarks) g = 8;
+      bodySamples.push({ posture: p, eye: e, gesture: g });
+    }
+
+    function computeBodyScore() {
+      if (!bodySamples.length) return 5;
+      const avg = k => bodySamples.reduce((s, x) => s + x[k], 0) / bodySamples.length;
+      return Math.round(((avg("posture") * 0.4) + (avg("eye") * 0.4) + (avg("gesture") * 0.2)) * 10) / 10;
+    }
+
+    // ── UI HELPERS ────────────────────────────────────────
+    function updateProgress() {
+      progressLabel.textContent = `Q ${currentQ + 1} / ${questions.length}`;
+      progressFill.style.width  = `${((currentQ) / questions.length) * 100}%`;
+    }
+
+    function showQuestion(idx) {
+      questionCard.classList.add("fade-out");
+      setTimeout(() => {
+        questionText.textContent = questions[idx];
+        questionCard.classList.remove("fade-out");
+        updateProgress();
+      }, 300);
+    }
+
+    // ── RECORDING ─────────────────────────────────────────
+    recordBtn.addEventListener("click", () => {
+      if (!isRecording) startRecording();
+      else stopRecording();
+    });
+
+    function startRecording() {
+      if (!stream) { alert("Camera not ready."); return; }
+      recordedChunks = [];
+      bodySamples    = [];
+      seconds        = 0;
+      pendingTranscript = null;
+      timerEl.textContent = "00:00";
+      actionRow.classList.remove("visible");
+
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = handleStop;
+      mediaRecorder.start();
+      isRecording = true;
+
+      sampleInterval = setInterval(sampleBody, 1000);
+      recordBtn.classList.add("recording");
+      recBadge.classList.add("visible");
+      btnLabel.textContent = "Tap to stop";
+
+      // Max 90 seconds per answer
+      timerInterval = setInterval(() => {
+        seconds++;
+        timerEl.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
+        if (seconds >= 90) stopRecording();
+      }, 1000);
+    }
+
+    function stopRecording() {
+      if (!isRecording) return;
+      isRecording = false;
+      clearInterval(timerInterval);
+      clearInterval(sampleInterval);
+      mediaRecorder.stop();
+      recordBtn.classList.remove("recording");
+      recBadge.classList.remove("visible");
+      btnLabel.textContent = "Tap to re-record";
+    }
+
+    async function handleStop() {
+      transcribeSpinner.classList.add("visible");
+      recordBtn.disabled = true;
+
+      const bodyScore = computeBodyScore();
+
+      try {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const formData = new FormData();
+        formData.append("file", blob, "answer.webm");
+        const res = await fetch("http://127.0.0.1:8000/transcribe", { method: "POST", body: formData });
+        const data = await res.json();
+        pendingTranscript = data.transcript;
+        qaBodyScores.push(bodyScore);
+      } catch (err) {
+        console.error("Transcription failed:", err);
+        pendingTranscript = "[transcription failed]";
+        qaBodyScores.push(5);
+      } finally {
+        transcribeSpinner.classList.remove("visible");
+        recordBtn.disabled = false;
+        actionRow.classList.add("visible");
+      }
+    }
+
+    // ── SUBMIT / SKIP ─────────────────────────────────────
+    submitBtn.addEventListener("click", () => {
+      if (!pendingTranscript) { alert("Please record your answer first."); return; }
+      qaAnswers.push({ question: questions[currentQ], transcript: pendingTranscript, skipped: false });
+      advanceQuestion();
+    });
+
+    skipBtn.addEventListener("click", () => {
+      qaAnswers.push({ question: questions[currentQ], transcript: "", skipped: true });
+      qaBodyScores.push(5); // neutral for skipped
+      advanceQuestion();
+    });
+
+    function advanceQuestion() {
+      actionRow.classList.remove("visible");
+      pendingTranscript = null;
+      currentQ++;
+
+      if (currentQ >= questions.length) {
+        finishSession();
+      } else {
+        showQuestion(currentQ);
+        btnLabel.textContent = "Tap to answer";
+      }
+    }
+
+    // ── FINAL ANALYSIS ────────────────────────────────────
+    async function finishSession() {
+      finalOverlay.classList.add("visible");
+      finalLabel.textContent = "Generating your full report...";
+
+      // Avg body score across all answers
+      const avgQaBodyScore = qaBodyScores.length
+        ? Math.round((qaBodyScores.reduce((a,b) => a+b, 0) / qaBodyScores.length) * 10) / 10
+        : 5;
+
+      try {
+        const res = await fetch("http://127.0.0.1:8000/analyze-project", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_transcript: projectTranscript,
+            project_body_score: projectBodyScore,
+            qa_answers: qaAnswers,
+            qa_body_score: avgQaBodyScore
+          })
+        });
+        const data = await res.json();
+        localStorage.setItem("projectAnalysis", JSON.stringify(data));
+
+        // Save to sessions as a project session
+        const sessions = JSON.parse(localStorage.getItem("sessions") || "[]");
+        const overall = data.overall_score || 5;
+        sessions.push({
+          date: new Date().toISOString().split("T")[0],
+          avgScore: overall,
+          mode: "project"
+        });
+        localStorage.setItem("sessions", JSON.stringify(sessions.slice(-10)));
+
+        window.location.href = "./project-knowledge.html";
+      } catch (err) {
+        console.error("Analysis failed:", err);
+        alert("Analysis failed. Please check your backend connection.");
+        finalOverlay.classList.remove("visible");
+      }
+    }
+
+    // ── INIT ──────────────────────────────────────────────
+    showQuestion(0);
+  </script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak – Project Recording</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e63946;
+      --text: #ffffff;
+      --muted: #555555;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #000; font-family: 'DM Sans', sans-serif; color: var(--text); min-height: 100vh; overflow: hidden; }
+
+    #video { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; }
+
+    .overlay-top { position: fixed; top: 0; left: 0; right: 0; height: 180px; background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%); z-index: 1; pointer-events: none; }
+    .overlay-bottom { position: fixed; bottom: 0; left: 0; right: 0; height: 280px; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); z-index: 1; pointer-events: none; }
+
+    .top-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 10; padding: 1.5rem 1.75rem; display: flex; align-items: flex-start; justify-content: space-between; }
+    .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; }
+    .logo .u { color: var(--accent); }
+
+    .mode-pill {
+      background: rgba(230,57,70,0.12);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(230,57,70,0.2);
+      border-radius: 10px;
+      padding: 0.5rem 0.875rem;
+      text-align: right;
+    }
+    .mode-pill .label { font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
+    .mode-pill .text  { font-size: 0.72rem; color: rgba(255,255,255,0.7); line-height: 1.4; }
+
+    .rec-badge { position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 10; display: none; align-items: center; gap: 8px; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); border: 1px solid rgba(230,57,70,0.3); border-radius: 999px; padding: 0.4rem 1rem; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; }
+    .rec-badge.visible { display: flex; }
+    .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+
+    .live-indicators { position: fixed; left: 1.25rem; bottom: 290px; z-index: 10; display: none; flex-direction: column; gap: 5px; }
+    .live-indicators.visible { display: flex; }
+    .indicator { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.55); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 4px 10px; font-size: 0.62rem; letter-spacing: 0.08em; color: rgba(255,255,255,0.35); text-transform: uppercase; }
+    .indicator-dot { width: 6px; height: 6px; border-radius: 50%; background: #2a2a2a; transition: background 0.4s ease; flex-shrink: 0; }
+    .indicator-dot.good { background: #22c55e; }
+    .indicator-dot.mid  { background: #f59e0b; }
+    .indicator-dot.bad  { background: var(--accent); }
+
+    .bottom-controls { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; padding: 1.5rem 1.75rem 2.5rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+    .timer-display { font-family: 'Syne', sans-serif; font-size: 0.9rem; letter-spacing: 0.15em; color: rgba(255,255,255,0.4); font-weight: 700; }
+
+    .record-btn { width: 72px; height: 72px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.15); background: rgba(230,57,70,0.15); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; }
+    .record-btn:hover { border-color: var(--accent); background: rgba(230,57,70,0.25); transform: scale(1.05); }
+    .record-btn.recording { background: var(--accent); border-color: var(--accent); animation: recordPulse 2s ease infinite; }
+    @keyframes recordPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(230,57,70,0.4); } 50% { box-shadow: 0 0 0 14px rgba(230,57,70,0); } }
+    .record-btn-inner { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); transition: border-radius 0.2s, width 0.2s, height 0.2s; }
+    .record-btn.recording .record-btn-inner { border-radius: 5px; width: 22px; height: 22px; background: #fff; }
+    .btn-label { font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-top: 0.4rem; text-align: center; }
+
+    .next-btn { display: none; width: 100%; max-width: 320px; padding: 0.9rem; background: var(--accent); border: none; border-radius: 12px; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s, transform 0.15s; }
+    .next-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .next-btn.visible { display: block; }
+
+    .spinner-wrap { display: none; flex-direction: column; align-items: center; gap: 0.6rem; }
+    .spinner-wrap.visible { display: flex; }
+    .spinner { width: 28px; height: 28px; border: 2px solid rgba(255,255,255,0.08); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .spinner-label { font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .mp-loading { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
+    .mp-loading.hidden { display: none; }
+    .mp-spinner { width: 32px; height: 32px; border: 2px solid #1f1f1f; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .mp-label { font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #444; }
+  </style>
+</head>
+<body>
+  <div class="mp-loading" id="mpLoading">
+    <div class="mp-spinner"></div>
+    <p class="mp-label">Loading body analysis...</p>
+  </div>
+
+  <video id="video" autoplay muted playsinline></video>
+  <canvas id="mpCanvas" style="display:none;"></canvas>
+
+  <div class="overlay-top"></div>
+  <div class="overlay-bottom"></div>
+
+  <div class="top-bar">
+    <div class="logo"><span class="u">U</span><span style="color:#fff">SPEAK</span></div>
+    <div class="mode-pill">
+      <div class="label">Project Mode</div>
+      <div class="text">Explain your project</div>
+    </div>
+  </div>
+
+  <div class="rec-badge" id="recBadge">
+    <div class="rec-dot"></div>
+    <span>REC</span>
+    <span id="timer" style="color:rgba(255,255,255,0.5); margin-left:4px;">00:00</span>
+  </div>
+
+  <div class="live-indicators" id="liveIndicators">
+    <div class="indicator"><div class="indicator-dot" id="postureIndicator"></div>Posture</div>
+    <div class="indicator"><div class="indicator-dot" id="eyeIndicator"></div>Eye Contact</div>
+    <div class="indicator"><div class="indicator-dot" id="gestureIndicator"></div>Gesture</div>
+  </div>
+
+  <div class="bottom-controls">
+    <div class="spinner-wrap" id="loadingSpinner">
+      <div class="spinner"></div>
+      <p class="spinner-label" id="spinnerLabel">Transcribing your explanation...</p>
+    </div>
+    <button class="next-btn" id="nextBtn">Answer Questions →</button>
+    <div>
+      <div style="display:flex; justify-content:center;">
+        <button class="record-btn" id="recordBtn">
+          <div class="record-btn-inner"></div>
+        </button>
+      </div>
+      <p class="btn-label" id="btnLabel">Tap to record</p>
+    </div>
+  </div>
+
+  <script>
+    const video          = document.getElementById("video");
+    const recordBtn      = document.getElementById("recordBtn");
+    const nextBtn        = document.getElementById("nextBtn");
+    const recBadge       = document.getElementById("recBadge");
+    const timerEl        = document.getElementById("timer");
+    const btnLabel       = document.getElementById("btnLabel");
+    const spinner        = document.getElementById("loadingSpinner");
+    const spinnerLabel   = document.getElementById("spinnerLabel");
+    const liveIndicators = document.getElementById("liveIndicators");
+    const mpLoading      = document.getElementById("mpLoading");
+
+    let mediaRecorder, recordedChunks = [], isRecording = false;
+    let stream, timerInterval, seconds = 0;
+    let bodySamples = [], lastLandmarks = null, sampleInterval = null;
+
+    // ── MEDIAPIPE ─────────────────────────────────────────
+    let holisticReady = false;
+    const holistic = new Holistic({
+      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${f}`
+    });
+    holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, refineFaceLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    holistic.onResults(results => { lastLandmarks = results; });
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        video.srcObject = stream;
+        const mpCamera = new Camera(video, {
+          onFrame: async () => { if (holisticReady) await holistic.send({ image: video }); },
+          width: 640, height: 480
+        });
+        await mpCamera.start();
+        holisticReady = true;
+        mpLoading.classList.add("hidden");
+      } catch (err) {
+        mpLoading.classList.add("hidden");
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          video.srcObject = stream;
+        } catch(e) { alert("Camera or microphone access denied."); }
+      }
+    }
+    holistic.initialize().then(startCamera).catch(startCamera);
+
+    // ── BODY LANGUAGE SCORING ─────────────────────────────
+    function sampleBodyLanguage() {
+      if (!lastLandmarks) return;
+      const r = lastLandmarks;
+      let postureScore = 5, eyeScore = 5, gestureScore = 4;
+      if (r.poseLandmarks) {
+        const ls = r.poseLandmarks[11], rs = r.poseLandmarks[12];
+        if (ls && rs) { const diff = Math.abs(ls.y - rs.y); postureScore = Math.max(1, Math.min(10, Math.round(10 - diff * 80))); }
+      }
+      if (r.faceLandmarks) {
+        const nose = r.faceLandmarks[1], lEye = r.faceLandmarks[33], rEye = r.faceLandmarks[263];
+        if (nose && lEye && rEye) {
+          const cx = (lEye.x + rEye.x) / 2, cy = (lEye.y + rEye.y) / 2;
+          const offset = Math.abs(nose.x - cx) + Math.abs(nose.y - cy);
+          eyeScore = Math.max(1, Math.min(10, Math.round(10 - offset * 60)));
+        }
+      }
+      if (r.leftHandLandmarks || r.rightHandLandmarks) gestureScore = 8;
+      updateDot("postureIndicator", postureScore);
+      updateDot("eyeIndicator", eyeScore);
+      updateDot("gestureIndicator", gestureScore);
+      bodySamples.push({ posture: postureScore, eye: eyeScore, gesture: gestureScore });
+    }
+
+    function updateDot(id, score) {
+      const dot = document.getElementById(id);
+      dot.className = "indicator-dot " + (score >= 7 ? "good" : score >= 4 ? "mid" : "bad");
+    }
+
+    function computeBodyLanguageScore() {
+      if (bodySamples.length === 0) return 5;
+      const avg = key => bodySamples.reduce((s, x) => s + x[key], 0) / bodySamples.length;
+      return Math.round(((avg("posture") * 0.4) + (avg("eye") * 0.4) + (avg("gesture") * 0.2)) * 10) / 10;
+    }
+
+    // ── RECORDING ─────────────────────────────────────────
+    recordBtn.addEventListener("click", () => {
+      if (!isRecording) startRecording();
+      else stopRecording();
+    });
+
+    function startRecording() {
+      if (!stream) { alert("Camera not ready yet."); return; }
+      localStorage.removeItem("projectTranscript");
+      localStorage.removeItem("projectAnalysis");
+      localStorage.removeItem("projectQuestions");
+      recordedChunks = [];
+      bodySamples    = [];
+      seconds        = 0;
+      timerEl.textContent = "00:00";
+
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = handleRecordingStop;
+      mediaRecorder.start();
+      isRecording = true;
+
+      sampleInterval = setInterval(sampleBodyLanguage, 1000);
+      recordBtn.classList.add("recording");
+      recBadge.classList.add("visible");
+      liveIndicators.classList.add("visible");
+      nextBtn.classList.remove("visible");
+      btnLabel.textContent = "Tap to stop";
+
+      const maxSeconds = parseInt(localStorage.getItem("sessionLength") || "2") * 60;
+      timerInterval = setInterval(() => {
+        seconds++;
+        timerEl.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
+        if (seconds >= maxSeconds) stopRecording();
+      }, 1000);
+    }
+
+    function stopRecording() {
+      if (!isRecording) return;
+      isRecording = false;
+      clearInterval(timerInterval);
+      clearInterval(sampleInterval);
+      mediaRecorder.stop();
+      recordBtn.classList.remove("recording");
+      recBadge.classList.remove("visible");
+      liveIndicators.classList.remove("visible");
+      btnLabel.textContent = "Tap to record";
+    }
+
+    async function handleRecordingStop() {
+      spinner.classList.add("visible");
+      recordBtn.disabled = true;
+      btnLabel.textContent = "";
+
+      const bodyLanguageScore = computeBodyLanguageScore();
+
+      try {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const formData = new FormData();
+        formData.append("file", blob, "recording.webm");
+
+        spinnerLabel.textContent = "Transcribing your explanation...";
+        const res = await fetch("http://127.0.0.1:8000/transcribe", { method: "POST", body: formData });
+        const data = await res.json();
+        const transcript = data.transcript;
+
+        localStorage.setItem("projectTranscript", transcript);
+        localStorage.setItem("projectBodyScore", bodyLanguageScore);
+
+        // Generate questions from the project explanation
+        spinnerLabel.textContent = "Generating your interview questions...";
+        const qRes = await fetch("http://127.0.0.1:8000/generate-project-questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript })
+        });
+        const qData = await qRes.json();
+        localStorage.setItem("projectQuestions", JSON.stringify(qData.questions));
+
+      } catch (err) {
+        console.error("Processing failed:", err);
+        alert("Something went wrong. Please try again.");
+      } finally {
+        spinner.classList.remove("visible");
+        recordBtn.disabled = false;
+        btnLabel.textContent = "Record again";
+        nextBtn.classList.add("visible");
+      }
+    }
+
+    nextBtn.addEventListener("click", () => { window.location.href = "./project-qa.html"; });
+  </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -11,17 +11,19 @@ import os
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # ── CONFIG ────────────────────────────────────────────────
+# JWT_SECRET is fine at module level — it has a hardcoded fallback
 JWT_SECRET      = os.getenv("JWT_SECRET", "changeme_use_a_long_random_string")
 JWT_ALGORITHM   = "HS256"
 JWT_EXPIRE_DAYS = 7
 
-GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_TOKEN_URL     = "https://oauth2.googleapis.com/token"
-GOOGLE_USERINFO_URL  = "https://www.googleapis.com/oauth2/v2/userinfo"
+# !! DO NOT read GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET here at module level !!
+# main.py imports this file before load_dotenv() finishes in some reload scenarios.
+# Instead, read them lazily inside the route using os.getenv() at call time.
 
-MONGO_URI = os.getenv("MONGO_URI")
-DB_NAME   = "uspeak-db"
+GOOGLE_TOKEN_URL    = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+
+DB_NAME = "uspeak-db"
 
 # ── DB ────────────────────────────────────────────────────
 _client = None
@@ -60,7 +62,7 @@ def decode_token(token: str) -> dict:
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-# ── AUTH DEPENDENCY (use in protected routes) ─────────────
+# ── AUTH DEPENDENCY ───────────────────────────────────────
 security = HTTPBearer()
 
 async def get_current_user(
@@ -90,7 +92,6 @@ class GoogleCallbackRequest(BaseModel):
 
 # ── HELPERS ───────────────────────────────────────────────
 def user_to_dict(user) -> dict:
-    """Convert MongoDB user doc to safe response dict"""
     return {
         "id":    str(user["_id"]),
         "name":  user.get("name", ""),
@@ -103,8 +104,6 @@ def user_to_dict(user) -> dict:
 async def register(data: RegisterRequest):
     db = get_db()
 
-
-    # Check if email already exists
     existing = await db.users.find_one({"email": data.email.lower()})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -112,7 +111,6 @@ async def register(data: RegisterRequest):
     if len(data.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-    # Create user
     user_doc = {
         "name":       data.name.strip(),
         "email":      data.email.lower().strip(),
@@ -158,25 +156,40 @@ async def login(data: LoginRequest):
 @router.post("/google")
 async def google_auth(data: GoogleCallbackRequest):
     """Exchange Google OAuth code for user info, create/login user"""
+
+    # ── Read credentials lazily here, NOT at module level ──
+    google_client_id     = os.getenv("GOOGLE_CLIENT_ID")
+    google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+
+    # Debug print — remove once working
+    print(f"GOOGLE_CLIENT_ID: {google_client_id}")
+    print(f"GOOGLE_CLIENT_SECRET: {'SET' if google_client_secret else 'NOT FOUND'}")
+
+    if not google_client_id or not google_client_secret:
+        raise HTTPException(
+            status_code=500,
+            detail="Google OAuth is not configured on the server. Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env"
+        )
+
     db = get_db()
 
-    # Exchange code for tokens
     async with httpx.AsyncClient() as client:
         token_res = await client.post(GOOGLE_TOKEN_URL, data={
             "code":          data.code,
-            "client_id":     GOOGLE_CLIENT_ID,
-            "client_secret": GOOGLE_CLIENT_SECRET,
+            "client_id":     google_client_id,
+            "client_secret": google_client_secret,
             "redirect_uri":  data.redirect_uri,
             "grant_type":    "authorization_code"
         })
 
+    print("Google token response:", token_res.status_code, token_res.text)
+
     if token_res.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to exchange Google code")
+        raise HTTPException(status_code=400, detail=f"Google token exchange failed: {token_res.text}")
 
     tokens = token_res.json()
     access_token = tokens.get("access_token")
 
-    # Get user info from Google
     async with httpx.AsyncClient() as client:
         info_res = await client.get(
             GOOGLE_USERINFO_URL,
@@ -192,18 +205,15 @@ async def google_auth(data: GoogleCallbackRequest):
     name      = guser.get("name", email.split("@")[0])
     picture   = guser.get("picture", "")
 
-    # Find or create user
     user = await db.users.find_one({"$or": [{"google_id": google_id}, {"email": email}]})
 
     if user:
-        # Update google_id if missing (user previously registered with email)
         if not user.get("google_id"):
             await db.users.update_one(
                 {"_id": user["_id"]},
                 {"$set": {"google_id": google_id, "picture": picture}}
             )
     else:
-        # Create new user
         result = await db.users.insert_one({
             "name":       name,
             "email":      email,
@@ -225,5 +235,4 @@ async def google_auth(data: GoogleCallbackRequest):
 
 @router.get("/me")
 async def get_me(current_user=Depends(get_current_user)):
-    """Returns current logged in user info"""
     return user_to_dict(current_user)

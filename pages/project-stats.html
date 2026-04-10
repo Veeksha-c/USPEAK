@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>uSpeak – Project Scores</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --bg: #0a0a0a; --surface: #111111; --border: #1f1f1f; --accent: #e63946; --text: #ffffff; --muted: #555555; }
+    * { box-sizing: border-box; }
+    body { background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--text); min-height: 100vh; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E"); pointer-events: none; z-index: 0; }
+    .page-wrap { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; min-height: 100vh; padding: 2rem 1.5rem 3rem; display: flex; flex-direction: column; }
+    .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; }
+    .logo .u { color: var(--accent); }
+
+    .mode-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(230,57,70,0.08); border: 1px solid rgba(230,57,70,0.2); border-radius: 6px; padding: 3px 10px; font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 500; margin-top: 1.75rem; margin-bottom: 0.5rem; width: fit-content; opacity: 0; animation: riseIn 0.4s ease 0.05s forwards; }
+
+    .page-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(2rem, 5vw, 2.8rem); letter-spacing: -0.03em; margin-bottom: 0.4rem; opacity: 0; animation: riseIn 0.5s ease 0.1s forwards; }
+    .page-subtitle { font-size: 0.85rem; color: var(--muted); font-weight: 300; margin-bottom: 2rem; opacity: 0; animation: riseIn 0.5s ease 0.2s forwards; }
+
+    .overall-banner { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; opacity: 0; animation: riseIn 0.5s ease 0.25s forwards; }
+    .overall-label { font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .overall-score { font-family: 'Syne', sans-serif; font-size: 2.2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.03em; line-height: 1; }
+    .overall-score span { font-size: 1rem; color: var(--muted); font-weight: 400; }
+    .score-bar-track { flex: 1; height: 4px; background: #1a1a1a; border-radius: 999px; margin-left: 1.5rem; overflow: hidden; }
+    .score-bar-fill { height: 100%; background: var(--accent); border-radius: 999px; width: 0%; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+
+    /* Section label */
+    .section-label { font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.6rem; margin-top: 0.25rem; opacity: 0; }
+    .section-label.s-exp { animation: riseIn 0.4s ease 0.28s forwards; }
+    .section-label.s-qa  { animation: riseIn 0.4s ease 0.5s forwards; }
+
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem 1rem; display: flex; flex-direction: column; gap: 0.75rem; opacity: 0; }
+    .stat-card:nth-child(1) { animation: riseIn 0.4s ease 0.30s forwards; }
+    .stat-card:nth-child(2) { animation: riseIn 0.4s ease 0.35s forwards; }
+    .stat-card:nth-child(3) { animation: riseIn 0.4s ease 0.40s forwards; }
+    .stat-card:nth-child(4) { animation: riseIn 0.4s ease 0.45s forwards; }
+
+    .qa-grid .stat-card:nth-child(1) { animation: riseIn 0.4s ease 0.52s forwards; }
+    .qa-grid .stat-card:nth-child(2) { animation: riseIn 0.4s ease 0.57s forwards; }
+    .qa-grid .stat-card:nth-child(3) { animation: riseIn 0.4s ease 0.62s forwards; }
+    .qa-grid .stat-card:nth-child(4) { animation: riseIn 0.4s ease 0.67s forwards; }
+
+    .stat-label { font-size: 0.72rem; color: var(--muted); font-weight: 400; letter-spacing: 0.02em; }
+    .stat-value { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 800; color: var(--text); letter-spacing: -0.03em; line-height: 1; }
+    .stat-value.good { color: #22c55e; }
+    .stat-value.mid  { color: #f59e0b; }
+    .stat-value.low  { color: var(--accent); }
+    .mini-bar-track { height: 3px; background: #1a1a1a; border-radius: 999px; overflow: hidden; }
+    .mini-bar-fill { height: 100%; border-radius: 999px; width: 0%; transition: width 1.2s cubic-bezier(0.4,0,0.2,1); }
+    .mini-bar-fill.good { background: #22c55e; }
+    .mini-bar-fill.mid  { background: #f59e0b; }
+    .mini-bar-fill.low  { background: var(--accent); }
+
+    .btn-primary { width: 100%; padding: 1rem; background: var(--accent); border: none; border-radius: 12px; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s, transform 0.15s; opacity: 0; animation: riseIn 0.5s ease 0.75s forwards; }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    @keyframes riseIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="logo"><span class="u">U</span><span style="color:#fff">SPEAK</span></div>
+
+    <div class="mode-badge">Project Mode</div>
+    <h1 class="page-title">Your Scores.</h1>
+    <p class="page-subtitle" id="sessionDate">Session results</p>
+
+    <div class="overall-banner">
+      <div>
+        <div class="overall-label">Overall Score</div>
+        <div class="overall-score" id="overallScore">–<span>/10</span></div>
+      </div>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" id="overallBar"></div>
+      </div>
+    </div>
+
+    <!-- EXPLANATION SCORES -->
+    <p class="section-label s-exp">Explanation</p>
+    <div class="stats-grid" id="expGrid">
+      <div class="stat-card">
+        <span class="stat-label">Fluency</span>
+        <div class="stat-value" id="expFluency">–</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" id="expFluencyBar"></div></div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Clarity</span>
+        <div class="stat-value" id="expClarity">–</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" id="expClarityBar"></div></div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Confidence</span>
+        <div class="stat-value" id="expConfidence">–</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" id="expConfidenceBar"></div></div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Body Language</span>
+        <div class="stat-value" id="expBody">–</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" id="expBodyBar"></div></div>
+      </div>
+    </div>
+
+    <!-- Q&A SCORES -->
+    <p class="section-label s-qa">Q&amp;A Round</p>
+    <div class="stats-grid qa-grid" id="qaGrid">
+      <div class="stat-card">
+        <span class="stat-label">Relevance</span>
+        <div class="stat-value" id="qaRelevance">–</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" id="qaRelevanceBar"></div></div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Depth</span>
+        <div class="stat-value" id="qaDepth">–</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" id="qaDepthBar"></div></div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Confidence</span>
+        <div class="stat-value" id="qaConfidence">–</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" id="qaConfidenceBar"></div></div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Body Language</span>
+        <div class="stat-value" id="qaBody">–</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" id="qaBodyBar"></div></div>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="window.location.href='./vibe.html'">
+      Back to Home →
+    </button>
+  </div>
+
+  <script>
+    const raw = localStorage.getItem("projectAnalysis");
+    if (!raw) { window.location.href = "./vibe.html"; }
+
+    const analysis = JSON.parse(raw);
+    const es = analysis.explanation_scores || {};
+    const qs = analysis.qa_scores || {};
+    const overall = analysis.overall_score || 5;
+
+    document.getElementById("overallScore").innerHTML = `${overall}<span>/10</span>`;
+    document.getElementById("sessionDate").textContent = new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long" });
+
+    function colorClass(v) { return v >= 8 ? "good" : v >= 5 ? "mid" : "low"; }
+
+    function fillCard(elId, barId, val) {
+      const el = document.getElementById(elId);
+      const bar = document.getElementById(barId);
+      const cls = colorClass(val ?? 5);
+      el.textContent = val ?? "–";
+      el.classList.add(cls);
+      bar.classList.add(cls);
+      setTimeout(() => { bar.style.width = `${((val ?? 5) / 10) * 100}%`; }, 400);
+    }
+
+    fillCard("expFluency",    "expFluencyBar",    es.fluency);
+    fillCard("expClarity",    "expClarityBar",    es.clarity);
+    fillCard("expConfidence", "expConfidenceBar", es.confidence);
+    fillCard("expBody",       "expBodyBar",       es.body_language);
+    fillCard("qaRelevance",   "qaRelevanceBar",   qs.relevance);
+    fillCard("qaDepth",       "qaDepthBar",       qs.depth);
+    fillCard("qaConfidence",  "qaConfidenceBar",  qs.confidence);
+    fillCard("qaBody",        "qaBodyBar",        qs.body_language);
+
+    setTimeout(() => {
+      document.getElementById("overallBar").style.width = `${(overall / 10) * 100}%`;
+    }, 300);
+  </script>
+</body>
+</html>

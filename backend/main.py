@@ -1,32 +1,38 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from groq import Groq
 from dotenv import load_dotenv
 import os
-import tempfile
-import shutil
-from fastapi import UploadFile, File
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from apscheduler.schedulers.asyncio import AsyncIOScheduler   # ← switched to Async
-from datetime import datetime
-from feedback import analyze_speech_full
 
-# Load environment variables
+# ── MUST be first — before any local imports that call os.getenv ──
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 print(f"Loading .env from: {env_path}")
 load_dotenv(env_path)
 
-from auth import router as auth_router, get_db
-from reminders import router as reminders_router             # ← NEW
+# ── NOW safe to import local modules ──────────────────────
+from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
+from groq import Groq
+import tempfile
+import shutil
+import smtplib
+import subprocess
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import datetime
+import re
 
+from feedback import analyze_speech_full
+from auth import router as auth_router, get_db
+from reminders import router as reminders_router
+from sessions import router as sessions_router
+
+# ── GROQ CLIENT ───────────────────────────────────────────
 api_key = os.getenv("GROQ_API_KEY")
 print(f"GROQ_API_KEY loaded: {api_key[:10]}..." if api_key else "GROQ_API_KEY not found")
-
 client = Groq(api_key=api_key)
 
+# ── APP ───────────────────────────────────────────────────
 app = FastAPI()
 
 app.add_middleware(
@@ -38,9 +44,10 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
-app.include_router(reminders_router)                         # ← NEW
+app.include_router(reminders_router)
+app.include_router(sessions_router)
 
-# ── EMAIL SENDER ─────────────────────────────────────────
+# ── EMAIL SENDER ──────────────────────────────────────────
 
 def send_email(to_email: str):
     sender = os.getenv("GMAIL_USER")
@@ -131,20 +138,14 @@ def send_email(to_email: str):
         server.sendmail(sender, to_email, msg.as_string())
 
 
-# ── SCHEDULER (reads from MongoDB) ───────────────────────
+# ── SCHEDULER ─────────────────────────────────────────────
 
 async def reminder_job():
-    """
-    Runs every minute. Scans all active reminders in MongoDB.
-    Sends email if current time >= scheduled time and not already sent today.
-    Works for every user independently.
-    """
     db = get_db()
     now = datetime.now()
     current_time = now.strftime("%H:%M")
     today = now.strftime("%Y-%m-%d")
 
-    # Fetch all active reminders
     cursor = db.reminders.find({"is_active": True})
     reminders = await cursor.to_list(length=1000)
 
@@ -156,13 +157,10 @@ async def reminder_job():
         if not scheduled_time or not email:
             continue
 
-        # Send if: current time has passed scheduled time AND not yet sent today
         if current_time >= scheduled_time and last_sent != today:
             try:
                 print(f"📧 Sending reminder to {email} (scheduled: {scheduled_time})")
                 send_email(email)
-
-                # Mark as sent for today so we don't double-send
                 await db.reminders.update_one(
                     {"_id": reminder["_id"]},
                     {"$set": {"last_sent_date": today}}
@@ -263,8 +261,6 @@ Generate the topic now:
     return {"topic": topic}
 
 
-import subprocess
-
 @app.post("/transcribe")
 async def transcribe_video(file: UploadFile = File(...)):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
@@ -307,3 +303,301 @@ def analyze_speech(data: AnalysisRequest):
 
     result = analyze_speech_full(transcript, client, data.body_language_score)
     return result
+
+
+class ProjectQuestionsRequest(BaseModel):
+    transcript: str
+
+@app.post("/generate-project-questions")
+def generate_project_questions(data: ProjectQuestionsRequest):
+    if not data.transcript or len(data.transcript.strip()) < 20:
+        return {"questions": [
+            "Can you tell me more about the problem your project solves?",
+            "What was the biggest technical challenge you faced?",
+            "How would you improve this project given more time?"
+        ]}
+
+    prompt = f"""
+You are an experienced technical interviewer conducting an HR + technical round.
+
+A candidate just explained their project. Based on their explanation, generate 4 sharp, 
+specific follow-up questions an interviewer would ask.
+
+Rules:
+- Questions must be grounded in what the candidate actually said
+- Mix of technical depth questions AND soft/impact questions
+- Each question should be one clear sentence
+- No numbering, no preamble — just the questions, one per line
+- Don't repeat what the candidate already answered well
+
+Candidate's explanation:
+\"\"\"{data.transcript}\"\"\"
+
+Generate 4 interview questions now:
+"""
+
+    completion = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": "You are a sharp technical interviewer. Generate concise, targeted interview questions based on what a candidate said."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.6,
+        max_tokens=200,
+    )
+
+    raw = completion.choices[0].message.content.strip()
+    questions = [q.strip().lstrip("-•123456789. ") for q in raw.splitlines() if q.strip()]
+    questions = [q for q in questions if len(q) > 10][:5]
+
+    if not questions:
+        questions = [
+            "What problem does your project solve, and who is the target user?",
+            "Walk me through the most technically challenging part of this project.",
+            "How does your system handle failure or edge cases?",
+            "What would you change about your architecture if you started over?"
+        ]
+
+    return {"questions": questions}
+
+
+class QAAnswer(BaseModel):
+    question: str
+    transcript: str
+    skipped: bool = False
+
+class ProjectAnalysisRequest(BaseModel):
+    project_transcript: str
+    project_body_score: float = 5.0
+    qa_answers: List[QAAnswer] = []
+    qa_body_score: float = 5.0
+
+@app.post("/analyze-project")
+def analyze_project(data: ProjectAnalysisRequest):
+    exp_prompt = f"""
+You are an expert speech and communication coach evaluating a project explanation.
+
+Analyze the transcript below using these EXACT rubrics:
+
+FLUENCY (1–10): smoothness, flow, absence of awkward pauses
+CLARITY (1–10): how clearly the project's purpose, tech, and impact are explained
+CONFIDENCE (1–10): assertive tone, absence of hedging and self-doubt
+
+Transcript:
+\"\"\"{data.project_transcript}\"\"\"
+
+Respond in THIS EXACT FORMAT only. No extra text:
+
+PROS:
+- [specific strength in the explanation]
+- [another strength]
+- [another strength]
+
+CONS:
+- [specific, actionable weakness]
+- [another weakness]
+- [another weakness]
+
+SCORES:
+fluency: X/10
+clarity: X/10
+confidence: X/10
+
+IMPROVEMENT_TIP:
+[One concrete tip for explaining projects better]
+"""
+
+    exp_completion = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": "You are a professional speech coach. Follow the exact format given. No extra commentary."},
+            {"role": "user", "content": exp_prompt}
+        ],
+        temperature=0.4,
+        max_tokens=500,
+    )
+    exp_raw = exp_completion.choices[0].message.content.strip()
+
+    def parse_exp(text):
+        pros, cons, scores, tip = [], [], {}, ""
+        section = None
+        for raw_line in text.splitlines():
+            line = raw_line.strip().replace("**", "")
+            if not line: continue
+            upper = line.upper()
+            if upper.startswith("PROS"): section = "pros"; continue
+            if upper.startswith("CONS"): section = "cons"; continue
+            if upper.startswith("SCORES"): section = "scores"; continue
+            if upper.startswith("IMPROVEMENT_TIP") or upper.startswith("IMPROVEMENT TIP"): section = "tip"; continue
+            if section in ["pros","cons"] and line.startswith("-"):
+                pt = line.lstrip("-").strip()
+                (pros if section=="pros" else cons).append(pt)
+            elif section == "scores" and ":" in line:
+                k, v = line.lstrip("-").strip().split(":", 1)
+                nums = re.findall(r"\d+", v)
+                scores[k.lower().strip()] = int(nums[0]) if nums else 5
+            elif section == "tip" and line:
+                tip += line + " "
+        return pros, cons, scores, tip.strip()
+
+    exp_pros, exp_cons, exp_scores, tip = parse_exp(exp_raw)
+
+    qa_feedback_list = []
+    qa_scores_agg = {"relevance": [], "depth": [], "confidence": []}
+    non_skipped = [a for a in data.qa_answers if not a.skipped and a.transcript.strip()]
+
+    if non_skipped:
+        qa_block = "\n\n".join([f"Q: {a.question}\nA: {a.transcript}" for a in non_skipped])
+
+        qa_prompt = f"""
+You are evaluating a candidate's answers during a project Q&A interview round.
+
+For EACH question-answer pair below, score and give one-sentence feedback.
+
+Scoring rubrics (1–10 each):
+- RELEVANCE: Does the answer directly address the question?
+- DEPTH: Does the answer show technical or conceptual understanding?
+- CONFIDENCE: Is the answer delivered assertively, without excessive hedging?
+
+Q&A Pairs:
+{qa_block}
+
+Respond in THIS EXACT FORMAT for each Q&A pair. Repeat the block for each pair:
+
+ANSWER_1:
+relevance: X/10
+depth: X/10
+confidence: X/10
+feedback: [one sentence of targeted feedback]
+
+ANSWER_2:
+relevance: X/10
+depth: X/10
+confidence: X/10
+feedback: [one sentence of targeted feedback]
+
+(continue for all answers)
+"""
+
+        qa_completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are a precise technical interviewer evaluating Q&A answers. Follow the exact format."},
+                {"role": "user", "content": qa_prompt}
+            ],
+            temperature=0.4,
+            max_tokens=600,
+        )
+        qa_raw = qa_completion.choices[0].message.content.strip()
+
+        blocks = re.split(r'ANSWER_\d+:', qa_raw)
+        blocks = [b.strip() for b in blocks if b.strip()]
+
+        for i, (answer_obj, block) in enumerate(zip(non_skipped, blocks)):
+            r_score, d_score, c_score, feedback = 5, 5, 5, "No feedback generated."
+            for line in block.splitlines():
+                line = line.strip().replace("**","")
+                if line.lower().startswith("relevance:"):
+                    nums = re.findall(r"\d+", line.split(":",1)[1])
+                    r_score = int(nums[0]) if nums else 5
+                elif line.lower().startswith("depth:"):
+                    nums = re.findall(r"\d+", line.split(":",1)[1])
+                    d_score = int(nums[0]) if nums else 5
+                elif line.lower().startswith("confidence:"):
+                    nums = re.findall(r"\d+", line.split(":",1)[1])
+                    c_score = int(nums[0]) if nums else 5
+                elif line.lower().startswith("feedback:"):
+                    feedback = line.split(":",1)[1].strip()
+
+            qa_scores_agg["relevance"].append(r_score)
+            qa_scores_agg["depth"].append(d_score)
+            qa_scores_agg["confidence"].append(c_score)
+
+            qa_feedback_list.append({
+                "question": answer_obj.question,
+                "feedback": feedback,
+                "skipped": False,
+                "scores": {"relevance": r_score, "depth": d_score, "confidence": c_score}
+            })
+
+    for a in data.qa_answers:
+        if a.skipped:
+            qa_feedback_list.append({"question": a.question, "feedback": "", "skipped": True})
+            qa_scores_agg["relevance"].append(1)
+            qa_scores_agg["depth"].append(1)
+            qa_scores_agg["confidence"].append(1)
+
+    def avg_list(lst): return round(sum(lst)/len(lst), 1) if lst else 5
+
+    qa_scores = {
+        "relevance":     avg_list(qa_scores_agg["relevance"]),
+        "depth":         avg_list(qa_scores_agg["depth"]),
+        "confidence":    avg_list(qa_scores_agg["confidence"]),
+        "body_language": round(data.qa_body_score, 1)
+    }
+
+    explanation_scores = {
+        "fluency":       exp_scores.get("fluency", 5),
+        "clarity":       exp_scores.get("clarity", 5),
+        "confidence":    exp_scores.get("confidence", 5),
+        "body_language": round(data.project_body_score, 1)
+    }
+
+    all_scores = list(explanation_scores.values()) + list(qa_scores.values())
+    overall = round(sum(all_scores) / len(all_scores), 1)
+    knowledge_score = round((qa_scores["relevance"] + qa_scores["depth"]) / 2, 1)
+    knowledge_gaps = []
+
+    if non_skipped:
+        gaps_prompt = f"""
+You are evaluating how well a candidate knows their own project based on their Q&A answers.
+
+Project explanation:
+\"\"\"{data.project_transcript[:800]}\"\"\"
+
+Their Q&A answers:
+{chr(10).join([f"Q: {a.question}{chr(10)}A: {a.transcript}" for a in non_skipped])}
+
+Based on the above, identify 2-3 specific knowledge gaps — things they clearly didn't know well,
+couldn't explain properly, or avoided answering. Be concrete and actionable.
+
+Rules:
+- Each gap is ONE sentence max
+- Focus on what they SHOULD know about their own project but didn't demonstrate
+- If they answered everything well, output exactly: NONE
+- No numbering, no preamble — just the gaps, one per line
+
+Output the gaps now:
+"""
+        try:
+            gaps_completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "You identify knowledge gaps in project explanations. Be specific and brief."},
+                    {"role": "user", "content": gaps_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=200,
+            )
+            gaps_raw = gaps_completion.choices[0].message.content.strip()
+            if gaps_raw.upper() != "NONE":
+                knowledge_gaps = [
+                    g.strip().lstrip("-•123456789. ")
+                    for g in gaps_raw.splitlines()
+                    if g.strip() and len(g.strip()) > 10
+                ][:3]
+        except Exception as e:
+            print(f"Knowledge gaps generation failed: {e}")
+            knowledge_gaps = []
+
+    return {
+        "explanation_pros":   exp_pros or ["Project was explained clearly."],
+        "explanation_cons":   exp_cons or ["More technical depth would strengthen the explanation."],
+        "qa_feedback":        qa_feedback_list,
+        "explanation_scores": explanation_scores,
+        "qa_scores":          qa_scores,
+        "overall_score":      overall,
+        "improvement_tip":    tip or "Practice explaining your project in under 90 seconds with one concrete example.",
+        "knowledge_score":    knowledge_score,
+        "knowledge_gaps":     knowledge_gaps,
+    }

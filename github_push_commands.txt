@@ -1,9 +1,4 @@
-# After creating your GitHub repository, run these commands:
 
-# Replace YOUR_USERNAME with your actual GitHub username
-git remote add origin https://github.com/YOUR_USERNAME/uspeak.git
-git branch -M main
-git push -u origin main
 
 
 git pull origin main
@@ -14,7 +9,4 @@ git commit -m "added X feature"
 git push origin main
 
 
-# Example:
-# git remote add origin https://github.com/veekshac/uspeak.git
-# git branch -M main
-# git push -u origin main
+
