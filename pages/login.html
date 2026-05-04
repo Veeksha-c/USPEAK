@@ -479,23 +479,23 @@
 
     // ── GOOGLE OAUTH ──────────────────────────────────────
     function signInWithGoogle() {
-      const clientId    = "628696501999-6m3galqborucq1iqru64kqvlitba978e.apps.googleusercontent.com"; // ← replace with your actual client ID
-      // In login.htmlconst redirectUri = encodeURIComponent("https://uspeak-six.vercel.app/pages/auth-callback.html");
-      const scope       = encodeURIComponent("openid email profile");
-      const state       = Math.random().toString(36).substring(2);
+  const clientId   = "628696501999-6m3galqborucq1iqru64kqvlitba978e.apps.googleusercontent.com";
+  const redirectUri = encodeURIComponent("https://uspeak-six.vercel.app/pages/auth-callback.html");
+  const scope      = encodeURIComponent("openid email profile");
+  const state      = Math.random().toString(36).substring(2);
 
-      localStorage.setItem("oauth_state", state);
+  localStorage.setItem("oauth_state", state);
 
-      const url = `https://accounts.google.com/o/oauth2/v2/auth` +
-        `?client_id=${clientId}` +
-        `&redirect_uri=${redirectUri}` +
-        `&response_type=code` +
-        `&scope=${scope}` +
-        `&state=${state}` +
-        `&access_type=offline`;
+  const url = `https://accounts.google.com/o/oauth2/v2/auth` +
+    `?client_id=${clientId}` +
+    `&redirect_uri=${redirectUri}` +
+    `&response_type=code` +
+    `&scope=${scope}` +
+    `&state=${state}` +
+    `&access_type=offline`;
 
-      window.location.href = url;
-    }
+  window.location.href = url;
+}
 
     // ── HELPERS ───────────────────────────────────────────
     function saveUserAndRedirect(data) {
