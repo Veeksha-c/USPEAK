@@ -384,7 +384,7 @@
       const token = localStorage.getItem("token");
       if (!token) return;  // not logged in, skip silently
       try {
-        const res = await fetch("http://127.0.0.1:8000/sessions", {
+        const res = await fetch("https://uspeak-backend.onrender.com/sessions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

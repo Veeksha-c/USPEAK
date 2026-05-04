@@ -311,11 +311,11 @@
         const formData = new FormData();
         formData.append("file", blob, "recording.webm");
 
-        const res = await fetch("http://127.0.0.1:8000/transcribe", { method: "POST", body: formData });
+        const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
         const data = await res.json();
         localStorage.setItem("transcript", data.transcript);
 
-        const analysisRes = await fetch("http://127.0.0.1:8000/analyze", {
+        const analysisRes = await fetch("https://uspeak-backend.onrender.com/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

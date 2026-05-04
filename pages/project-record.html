@@ -270,7 +270,7 @@
         formData.append("file", blob, "recording.webm");
 
         spinnerLabel.textContent = "Transcribing your explanation...";
-        const res = await fetch("http://127.0.0.1:8000/transcribe", { method: "POST", body: formData });
+        const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
         const data = await res.json();
         const transcript = data.transcript;
 
@@ -279,7 +279,7 @@
 
         // Generate questions from the project explanation
         spinnerLabel.textContent = "Generating your interview questions...";
-        const qRes = await fetch("http://127.0.0.1:8000/generate-project-questions", {
+        const qRes = await fetch("https://uspeak-backend.onrender.com/generate-project-questions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ transcript })

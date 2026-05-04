@@ -380,7 +380,7 @@ startCamera();  // ← call directly, no waiting
         const blob = new Blob(recordedChunks, { type: "video/webm" });
         const formData = new FormData();
         formData.append("file", blob, "answer.webm");
-        const res = await fetch("http://127.0.0.1:8000/transcribe", { method: "POST", body: formData });
+        const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
         const data = await res.json();
         pendingTranscript = data.transcript;
         qaBodyScores.push(bodyScore);
@@ -432,7 +432,7 @@ startCamera();  // ← call directly, no waiting
         : 5;
 
       try {
-        const res = await fetch("http://127.0.0.1:8000/analyze-project", {
+        const res = await fetch("https://uspeak-backend.onrender.com/analyze-project", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
