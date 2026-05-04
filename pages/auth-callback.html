@@ -32,128 +32,72 @@
   <p class="error-msg" id="errorMsg"></p>
 
   <script>
-    const API = "https://uspeak-backend.onrender.com";
+  const API = "https://uspeak-backend.onrender.com";
 
-    async function handleCallback() {
-      const params = new URLSearchParams(window.location.search);
-      const code   = params.get("code");
-      const state  = params.get("state");
-      const error  = params.get("error");
-
-      // Handle user denied
-      if (error) {
-        showError("Google sign-in was cancelled.");
-        setTimeout(() => window.location.href = "./login.html", 2000);
-        return;
-      }
-
-      // Verify state matches
-      const savedState = localStorage.getItem("oauth_state");
-      if (!code || state !== savedState) {
-        showError("Invalid OAuth state. Please try again.");
-        setTimeout(() => window.location.href = "./login.html", 2000);
-        return;
-      }
-
-      localStorage.removeItem("oauth_state");
-
-      try {
-        const res = await fetch(`${API}/auth/google`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          // In auth-callback.html
-body: JSON.stringify({ 
-  code: code, 
-  redirect_uri: "http://127.0.0.1:5500/pages/auth-callback.html" 
-})
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          showError(data.detail || "Google sign-in failed.");
-          setTimeout(() => window.location.href = "./login.html", 2000);
-          return;
-        }
-
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        window.location.href = "./vibe.html";
-
-      } catch (err) {
-        showError("Server unreachable. Please try again.");
-        setTimeout(() => window.location.href = "./login.html", 2000);
-      }
-    }
-
-    function showError(msg) {
-      document.getElementById("spinner").style.display = "none";
-      document.getElementById("label").style.display = "none";
-      const el = document.getElementById("errorMsg");
-      el.textContent = msg;
-      el.style.display = "block";
-    }
-
-    handleCallback();
-    async function handleCallback() {
-  // ── GUARD: prevent double execution ──────────────────
-  if (sessionStorage.getItem("oauth_processing")) {
-    console.log("Already processing, skipping.");
-    return;
-  }
-  sessionStorage.setItem("oauth_processing", "true");
-  // ─────────────────────────────────────────────────────
-
-  const params = new URLSearchParams(window.location.search);
-  const code   = params.get("code");
-  const state  = params.get("state");
-  const error  = params.get("error");
-
-  if (error) {
-    showError("Google sign-in was cancelled.");
-    setTimeout(() => window.location.href = "./login.html", 2000);
-    return;
+  function showError(msg) {
+    document.getElementById("spinner").style.display = "none";
+    document.getElementById("label").style.display = "none";
+    const el = document.getElementById("errorMsg");
+    el.textContent = msg;
+    el.style.display = "block";
   }
 
-  const savedState = localStorage.getItem("oauth_state");
-  if (!code || state !== savedState) {
-    showError("Invalid OAuth state. Please try again.");
-    setTimeout(() => window.location.href = "./login.html", 2000);
-    return;
-  }
+  async function handleCallback() {
+    if (sessionStorage.getItem("oauth_processing")) return;
+    sessionStorage.setItem("oauth_processing", "true");
 
-  localStorage.removeItem("oauth_state");
+    const params = new URLSearchParams(window.location.search);
+    const code   = params.get("code");
+    const state  = params.get("state");
+    const error  = params.get("error");
 
-  try {
-    const res = await fetch(`${API}/auth/google`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: code,
-        redirect_uri: "https://uspeak-six.vercel.app/pages/auth-callback.html"
-      })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      sessionStorage.removeItem("oauth_processing");  // allow retry
-      showError(data.detail || "Google sign-in failed.");
+    if (error) {
+      showError("Google sign-in was cancelled.");
       setTimeout(() => window.location.href = "./login.html", 2000);
       return;
     }
 
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    sessionStorage.removeItem("oauth_processing");
-    window.location.href = "./vibe.html";
+    const savedState = localStorage.getItem("oauth_state");
+    if (!code || state !== savedState) {
+      showError("Invalid OAuth state. Please try again.");
+      setTimeout(() => window.location.href = "./login.html", 2000);
+      return;
+    }
 
-  } catch (err) {
-    sessionStorage.removeItem("oauth_processing");  // allow retry
-    showError("Server unreachable. Please try again.");
-    setTimeout(() => window.location.href = "./login.html", 2000);
+    localStorage.removeItem("oauth_state");
+
+    try {
+      const res = await fetch(`${API}/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: code,
+          redirect_uri: "https://uspeak-six.vercel.app/auth-callback.html"
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        sessionStorage.removeItem("oauth_processing");
+        showError(data.detail || "Google sign-in failed.");
+        setTimeout(() => window.location.href = "./login.html", 2000);
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      sessionStorage.removeItem("oauth_processing");
+      window.location.href = "./vibe.html";
+
+    } catch (err) {
+      sessionStorage.removeItem("oauth_processing");
+      showError("Server unreachable. Please try again.");
+      setTimeout(() => window.location.href = "./login.html", 2000);
+    }
   }
-}
-  </script>
+
+  handleCallback();
+</script>
 </body>
 </html>

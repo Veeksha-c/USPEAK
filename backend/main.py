@@ -102,7 +102,7 @@ def send_email(to_email: str):
               <table cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background-color:#c0392b; border-radius:8px;">
-                    <a href="http://127.0.0.1:5500/pages/vibe.html"
+                    <a href="https://uspeak-six.vercel.app/pages/vibe.html" 
                        style="display:inline-block; padding:14px 32px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none; letter-spacing:0.5px;">
                       Start Today's Session →
                     </a>
@@ -142,7 +142,7 @@ def send_email(to_email: str):
 
 async def reminder_job():
     db = get_db()
-    now = datetime.now()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     current_time = now.strftime("%H:%M")
     today = now.strftime("%Y-%m-%d")
 
@@ -170,7 +170,8 @@ async def reminder_job():
 
 
 scheduler = AsyncIOScheduler()
-scheduler.add_job(reminder_job, "interval", minutes=1)
+# ✅ NEW
+scheduler.add_job(reminder_job, "interval", minutes=1, misfire_grace_time=60)
 
 @app.on_event("startup")
 async def startup():

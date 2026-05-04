@@ -265,7 +265,7 @@
       const bodyLanguageScore = computeBodyLanguageScore();
 
       try {
-        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const blob = new Blob(recordedChunks, { type: mimeType || "video/webm" });
         const formData = new FormData();
         formData.append("file", blob, "recording.webm");
 

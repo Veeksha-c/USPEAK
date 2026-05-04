@@ -54,7 +54,7 @@ async def create_or_update_reminder(
 
     existing = await db.reminders.find_one({"user_id": user_id})
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     if existing:
         # Update existing reminder

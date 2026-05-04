@@ -125,229 +125,235 @@
 
   <script>
     const video          = document.getElementById("video");
-    const recordBtn      = document.getElementById("recordBtn");
-    const nextBtn        = document.getElementById("nextBtn");
-    const recBadge       = document.getElementById("recBadge");
-    const timerEl        = document.getElementById("timer");
-    const btnLabel       = document.getElementById("btnLabel");
-    const spinner        = document.getElementById("loadingSpinner");
-    const liveIndicators = document.getElementById("liveIndicators");
-    const mpLoading      = document.getElementById("mpLoading");
+const recordBtn      = document.getElementById("recordBtn");
+const nextBtn        = document.getElementById("nextBtn");
+const recBadge       = document.getElementById("recBadge");
+const timerEl        = document.getElementById("timer");
+const btnLabel       = document.getElementById("btnLabel");
+const spinner        = document.getElementById("loadingSpinner");
+const liveIndicators = document.getElementById("liveIndicators");
+const mpLoading      = document.getElementById("mpLoading");
 
-    const topic = localStorage.getItem("generatedTopic");
-    if (topic) document.getElementById("recordTopic").innerText = topic;
+const topic = localStorage.getItem("generatedTopic");
+if (topic) document.getElementById("recordTopic").innerText = topic;
 
-    let mediaRecorder, recordedChunks = [], isRecording = false;
-    let stream, timerInterval, seconds = 0;
-    let bodySamples = [], lastLandmarks = null, sampleInterval = null;
+// ── GLOBALS ───────────────────────────────────────────
+let mimeType = "";
+let mediaRecorder, recordedChunks = [], isRecording = false;
+let stream, timerInterval, seconds = 0;
+let bodySamples = [], lastLandmarks = null, sampleInterval = null;
+let holisticReady = false;
 
-    // ── MEDIAPIPE ─────────────────────────────────────────
-    let holisticReady = false;
+const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
 
-    const holistic = new Holistic({
-      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${f}`
+// ── MEDIAPIPE ─────────────────────────────────────────
+const holistic = new Holistic({
+  locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${f}`
+});
+
+holistic.setOptions({
+  modelComplexity: 1,
+  smoothLandmarks: true,
+  enableSegmentation: false,
+  refineFaceLandmarks: true,
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5
+});
+
+holistic.onResults(results => { lastLandmarks = results; });
+
+// ── CAMERA ────────────────────────────────────────────
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    video.srcObject = stream;
+
+    if (!isMobile) {
+      const mpCamera = new Camera(video, {
+        onFrame: async () => {
+          if (holisticReady) await holistic.send({ image: video });
+        },
+        width: 640,
+        height: 480
+      });
+      await mpCamera.start();
+      holisticReady = true;
+    }
+
+    mpLoading.classList.add("hidden");
+
+  } catch (err) {
+    mpLoading.classList.add("hidden");
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      video.srcObject = stream;
+    } catch(e) {
+      alert("Camera or microphone access denied.");
+    }
+  }
+}
+
+// Only initialize MediaPipe on desktop
+if (!isMobile) {
+  holistic.initialize()
+    .then(startCamera)
+    .catch(startCamera);
+} else {
+  startCamera(); // skip MediaPipe on mobile
+}
+
+// ── BODY LANGUAGE SCORING ─────────────────────────────
+function sampleBodyLanguage() {
+  if (!lastLandmarks) return;
+
+  const r = lastLandmarks;
+  let postureScore = 5, eyeScore = 5, gestureScore = 4;
+
+  if (r.poseLandmarks) {
+    const ls = r.poseLandmarks[11];
+    const rs = r.poseLandmarks[12];
+    if (ls && rs) {
+      const diff = Math.abs(ls.y - rs.y);
+      postureScore = Math.max(1, Math.min(10, Math.round(10 - diff * 80)));
+    }
+  }
+
+  if (r.faceLandmarks) {
+    const nose = r.faceLandmarks[1];
+    const lEye = r.faceLandmarks[33];
+    const rEye = r.faceLandmarks[263];
+    if (nose && lEye && rEye) {
+      const cx = (lEye.x + rEye.x) / 2;
+      const cy = (lEye.y + rEye.y) / 2;
+      const offset = Math.abs(nose.x - cx) + Math.abs(nose.y - cy);
+      eyeScore = Math.max(1, Math.min(10, Math.round(10 - offset * 60)));
+    }
+  }
+
+  if (r.leftHandLandmarks || r.rightHandLandmarks) gestureScore = 8;
+
+  updateDot("postureIndicator", postureScore);
+  updateDot("eyeIndicator",     eyeScore);
+  updateDot("gestureIndicator", gestureScore);
+
+  bodySamples.push({ posture: postureScore, eye: eyeScore, gesture: gestureScore });
+}
+
+function updateDot(id, score) {
+  const dot = document.getElementById(id);
+  dot.className = "indicator-dot " + (score >= 7 ? "good" : score >= 4 ? "mid" : "bad");
+}
+
+function computeBodyLanguageScore() {
+  if (bodySamples.length === 0) return 5;
+  const avg = key => bodySamples.reduce((s, x) => s + x[key], 0) / bodySamples.length;
+  return Math.round(((avg("posture") * 0.4) + (avg("eye") * 0.4) + (avg("gesture") * 0.2)) * 10) / 10;
+}
+
+// ── RECORDING ─────────────────────────────────────────
+recordBtn.addEventListener("click", () => {
+  if (!isRecording) startRecording();
+  else stopRecording();
+});
+
+function startRecording() {
+  if (!stream) { alert("Camera not ready yet."); return; }
+  localStorage.removeItem("analysis");
+  localStorage.removeItem("transcript");
+  recordedChunks = [];
+  bodySamples    = [];
+  seconds        = 0;
+  timerEl.textContent = "00:00";
+
+  mimeType = MediaRecorder.isTypeSupported("video/webm")
+    ? "video/webm"
+    : MediaRecorder.isTypeSupported("video/mp4")
+    ? "video/mp4"
+    : "";
+
+  mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = handleRecordingStop;
+  mediaRecorder.start();
+  isRecording = true;
+
+  sampleInterval = setInterval(sampleBodyLanguage, 1000);
+
+  recordBtn.classList.add("recording");
+  recBadge.classList.add("visible");
+  liveIndicators.classList.add("visible");
+  nextBtn.classList.remove("visible");
+  btnLabel.textContent = "Tap to stop";
+
+  const maxSeconds = parseInt(localStorage.getItem("sessionLength") || "2") * 60;
+  timerInterval = setInterval(() => {
+    seconds++;
+    timerEl.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
+    if (seconds >= maxSeconds) stopRecording();
+  }, 1000);
+}
+
+function stopRecording() {
+  if (!isRecording) return;
+  isRecording = false;
+  clearInterval(timerInterval);
+  clearInterval(sampleInterval);
+  mediaRecorder.stop();
+  recordBtn.classList.remove("recording");
+  recBadge.classList.remove("visible");
+  liveIndicators.classList.remove("visible");
+  btnLabel.textContent = "Tap to record";
+}
+
+async function handleRecordingStop() {
+  spinner.classList.add("visible");
+  recordBtn.disabled = true;
+  btnLabel.textContent = "";
+
+  const bodyLanguageScore = computeBodyLanguageScore();
+  console.log(`Body language: ${bodyLanguageScore}/10 from ${bodySamples.length} samples`);
+
+  try {
+    const blob = new Blob(recordedChunks, { type: mimeType || "video/webm" });
+    const formData = new FormData();
+    formData.append("file", blob, "recording.webm");
+
+    const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
+    const data = await res.json();
+    localStorage.setItem("transcript", data.transcript);
+
+    const analysisRes = await fetch("https://uspeak-backend.onrender.com/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transcript: data.transcript,
+        body_language_score: bodyLanguageScore
+      })
     });
+    const analysis = await analysisRes.json();
+    localStorage.setItem("analysis", JSON.stringify(analysis));
 
-    holistic.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      enableSegmentation: false,
-      refineFaceLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
+    const sessions = JSON.parse(localStorage.getItem("sessions")) || [];
+    const sc = analysis.scores;
+    const avg = ((sc.fluency||5) + (sc.clarity||5) + (sc.confidence||5) +
+                 (sc.on_topic||5) + (10-(sc.filler_words||5)) + (sc.body_language||5)) / 6;
+    sessions.push({
+      date: new Date().toISOString().split("T")[0],
+      avgScore: isNaN(avg) ? 5 : Math.round(avg * 10) / 10
     });
+    localStorage.setItem("sessions", JSON.stringify(sessions.slice(-10)));
 
-    holistic.onResults(results => { lastLandmarks = results; });
+  } catch (err) {
+    console.error("Processing failed:", err);
+  } finally {
+    spinner.classList.remove("visible");
+    recordBtn.disabled = false;
+    btnLabel.textContent = "Record again";
+    nextBtn.classList.add("visible");
+  }
+}
 
-    // ── CAMERA ────────────────────────────────────────────
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        video.srcObject = stream;
-
-        // Feed frames to MediaPipe using Camera utility
-        const mpCamera = new Camera(video, {
-          onFrame: async () => {
-            if (holisticReady) await holistic.send({ image: video });
-          },
-          width: 640,
-          height: 480
-        });
-
-        await mpCamera.start();
-        holisticReady = true;
-        mpLoading.classList.add("hidden");
-
-      } catch (err) {
-        mpLoading.classList.add("hidden");
-        // Fallback: plain camera without MediaPipe
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          video.srcObject = stream;
-        } catch(e) {
-          alert("Camera or microphone access denied.");
-        }
-      }
-    }
-
-    holistic.initialize()
-      .then(startCamera)
-      .catch(startCamera); // even if holistic fails, start camera
-
-    // ── BODY LANGUAGE SCORING ─────────────────────────────
-    function sampleBodyLanguage() {
-      if (!lastLandmarks) return;
-
-      const r = lastLandmarks;
-      let postureScore = 5, eyeScore = 5, gestureScore = 4;
-
-      // Posture: shoulder level (landmarks 11=left, 12=right shoulder)
-      if (r.poseLandmarks) {
-        const ls = r.poseLandmarks[11];
-        const rs = r.poseLandmarks[12];
-        if (ls && rs) {
-          const diff = Math.abs(ls.y - rs.y);
-          postureScore = Math.max(1, Math.min(10, Math.round(10 - diff * 80)));
-        }
-      }
-
-      // Eye contact: nose tip vs eye center offset
-      if (r.faceLandmarks) {
-        const nose = r.faceLandmarks[1];
-        const lEye = r.faceLandmarks[33];
-        const rEye = r.faceLandmarks[263];
-        if (nose && lEye && rEye) {
-          const cx = (lEye.x + rEye.x) / 2;
-          const cy = (lEye.y + rEye.y) / 2;
-          const offset = Math.abs(nose.x - cx) + Math.abs(nose.y - cy);
-          eyeScore = Math.max(1, Math.min(10, Math.round(10 - offset * 60)));
-        }
-      }
-
-      // Gesture: hands visible
-      if (r.leftHandLandmarks || r.rightHandLandmarks) {
-        gestureScore = 8;
-      }
-
-      // Update live dots
-      updateDot("postureIndicator", postureScore);
-      updateDot("eyeIndicator",     eyeScore);
-      updateDot("gestureIndicator", gestureScore);
-
-      bodySamples.push({ posture: postureScore, eye: eyeScore, gesture: gestureScore });
-    }
-
-    function updateDot(id, score) {
-      const dot = document.getElementById(id);
-      dot.className = "indicator-dot " + (score >= 7 ? "good" : score >= 4 ? "mid" : "bad");
-    }
-
-    function computeBodyLanguageScore() {
-      if (bodySamples.length === 0) return 5;
-      const avg = key => bodySamples.reduce((s, x) => s + x[key], 0) / bodySamples.length;
-      // Weighted: posture 40%, eye 40%, gesture 20%
-      return Math.round(((avg("posture") * 0.4) + (avg("eye") * 0.4) + (avg("gesture") * 0.2)) * 10) / 10;
-    }
-
-    // ── RECORDING ─────────────────────────────────────────
-    recordBtn.addEventListener("click", () => {
-      if (!isRecording) startRecording();
-      else stopRecording();
-    });
-
-    function startRecording() {
-      if (!stream) { alert("Camera not ready yet."); return; }
-      localStorage.removeItem("analysis");
-      localStorage.removeItem("transcript");
-      recordedChunks = [];
-      bodySamples    = [];
-      seconds        = 0;
-      timerEl.textContent = "00:00";
-
-      mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-      mediaRecorder.onstop = handleRecordingStop;
-      mediaRecorder.start();
-      isRecording = true;
-
-      sampleInterval = setInterval(sampleBodyLanguage, 1000);
-
-      recordBtn.classList.add("recording");
-      recBadge.classList.add("visible");
-      liveIndicators.classList.add("visible");
-      nextBtn.classList.remove("visible");
-      btnLabel.textContent = "Tap to stop";
-
-      const maxSeconds = parseInt(localStorage.getItem("sessionLength") || "2") * 60;
-      timerInterval = setInterval(() => {
-        seconds++;
-        timerEl.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
-        if (seconds >= maxSeconds) stopRecording();
-      }, 1000);
-    }
-
-    function stopRecording() {
-      if (!isRecording) return;
-      isRecording = false;
-      clearInterval(timerInterval);
-      clearInterval(sampleInterval);
-      mediaRecorder.stop();
-      recordBtn.classList.remove("recording");
-      recBadge.classList.remove("visible");
-      liveIndicators.classList.remove("visible");
-      btnLabel.textContent = "Tap to record";
-    }
-
-    async function handleRecordingStop() {
-      spinner.classList.add("visible");
-      recordBtn.disabled = true;
-      btnLabel.textContent = "";
-
-      const bodyLanguageScore = computeBodyLanguageScore();
-      console.log(`Body language: ${bodyLanguageScore}/10 from ${bodySamples.length} samples`);
-
-      try {
-        const blob = new Blob(recordedChunks, { type: "video/webm" });
-        const formData = new FormData();
-        formData.append("file", blob, "recording.webm");
-
-        const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
-        const data = await res.json();
-        localStorage.setItem("transcript", data.transcript);
-
-        const analysisRes = await fetch("https://uspeak-backend.onrender.com/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            transcript: data.transcript,
-            body_language_score: bodyLanguageScore   // ← real score from MediaPipe
-          })
-        });
-        const analysis = await analysisRes.json();
-        localStorage.setItem("analysis", JSON.stringify(analysis));
-
-        // Save session with all 6 scores
-        const sessions = JSON.parse(localStorage.getItem("sessions")) || [];
-        const sc = analysis.scores;
-        const avg = ((sc.fluency||5) + (sc.clarity||5) + (sc.confidence||5) +
-                     (sc.on_topic||5) + (10-(sc.filler_words||5)) + (sc.body_language||5)) / 6;
-        sessions.push({
-          date: new Date().toISOString().split("T")[0],
-          avgScore: isNaN(avg) ? 5 : Math.round(avg * 10) / 10
-        });
-        localStorage.setItem("sessions", JSON.stringify(sessions.slice(-10)));
-
-      } catch (err) {
-        console.error("Processing failed:", err);
-      } finally {
-        spinner.classList.remove("visible");
-        recordBtn.disabled = false;
-        btnLabel.textContent = "Record again";
-        nextBtn.classList.add("visible");
-      }
-    }
-
-    nextBtn.addEventListener("click", () => { window.location.href = "./report.html"; });
+nextBtn.addEventListener("click", () => { window.location.href = "./report.html"; });
   </script>
 </body>
 </html>
