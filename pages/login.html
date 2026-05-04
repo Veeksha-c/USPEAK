@@ -480,8 +480,7 @@
     // ── GOOGLE OAUTH ──────────────────────────────────────
     function signInWithGoogle() {
       const clientId    = "628696501999-6m3galqborucq1iqru64kqvlitba978e.apps.googleusercontent.com"; // ← replace with your actual client ID
-      // In login.html
-const redirectUri = encodeURIComponent("http://127.0.0.1:5500/pages/auth-callback.html");
+      // In login.htmlconst redirectUri = encodeURIComponent("https://uspeak-six.vercel.app/pages/auth-callback.html");
       const scope       = encodeURIComponent("openid email profile");
       const state       = Math.random().toString(36).substring(2);
 
