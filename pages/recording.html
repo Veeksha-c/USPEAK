@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>uSpeak – Recording</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
@@ -199,7 +200,7 @@ if (!isMobile) {
     .then(startCamera)
     .catch(startCamera);
 } else {
-  startCamera(); // skip MediaPipe on mobile
+  loadFaceApiAndStart(); // lightweight detection on mobile
 }
 
 // ── BODY LANGUAGE SCORING ─────────────────────────────
@@ -255,7 +256,73 @@ recordBtn.addEventListener("click", () => {
   if (!isRecording) startRecording();
   else stopRecording();
 });
+// ── MOBILE: FACE-API.JS ───────────────────────────────
+async function loadFaceApiAndStart() {
+  try {
+    // Load lightweight models
+    const MODEL_URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights";
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    ]);
+    console.log("✅ face-api models loaded");
+  } catch (e) {
+    console.warn("face-api failed to load, using defaults", e);
+  }
+  await startCamera();
+}
 
+// Mobile body language sampling using face-api
+async function sampleBodyLanguageMobile() {
+  if (!stream) return;
+
+  try {
+    const detection = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks(true);
+
+    if (!detection) {
+      // No face detected — bad eye contact
+      bodySamples.push({ posture: 5, eye: 3, gesture: 5 });
+      updateDot("postureIndicator", 5);
+      updateDot("eyeIndicator", 3);
+      updateDot("gestureIndicator", 5);
+      return;
+    }
+
+    const landmarks = detection.landmarks;
+    const nose = landmarks.getNose();
+    const leftEye = landmarks.getLeftEye();
+    const rightEye = landmarks.getRightEye();
+
+    // Eye contact: how centered is the nose relative to eyes
+    const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
+    const eyeCenterY = (leftEye[0].y + rightEye[3].y) / 2;
+    const noseX = nose[3].x;
+    const noseY = nose[3].y;
+
+    const { width, height } = detection.detection.box;
+    const offsetX = Math.abs(noseX - eyeCenterX) / width;
+    const offsetY = Math.abs(noseY - eyeCenterY) / height;
+    const eyeScore = Math.max(1, Math.min(10, Math.round(10 - (offsetX + offsetY) * 15)));
+
+    // Posture: face size relative to video (closer = better posture)
+    const faceRatio = detection.detection.box.width / video.videoWidth;
+    const postureScore = Math.max(1, Math.min(10, Math.round(faceRatio * 30)));
+
+    // Gesture: always neutral on mobile (no hand detection)
+    const gestureScore = 5;
+
+    updateDot("postureIndicator", postureScore);
+    updateDot("eyeIndicator", eyeScore);
+    updateDot("gestureIndicator", gestureScore);
+
+    bodySamples.push({ posture: postureScore, eye: eyeScore, gesture: gestureScore });
+
+  } catch (e) {
+    console.warn("face-api sample error:", e);
+  }
+}
 function startRecording() {
   if (!stream) { alert("Camera not ready yet."); return; }
   localStorage.removeItem("analysis");
@@ -277,7 +344,9 @@ function startRecording() {
   mediaRecorder.start();
   isRecording = true;
 
-  sampleInterval = setInterval(sampleBodyLanguage, 1000);
+  sampleInterval = isMobile
+  ? setInterval(sampleBodyLanguageMobile, 1500)  // slower on mobile to save CPU
+  : setInterval(sampleBodyLanguage, 1000);
 
   recordBtn.classList.add("recording");
   recBadge.classList.add("visible");

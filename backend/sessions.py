@@ -7,7 +7,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from jose import JWTError, jwt   # ← matches auth.py (python-jose)
 import os
 
