@@ -340,7 +340,9 @@ startCamera();  // ← call directly, no waiting
       timerEl.textContent = "00:00";
       actionRow.classList.remove("visible");
 
-      mediaRecorder = new MediaRecorder(stream);
+      mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+         : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
       mediaRecorder.onstop = handleStop;
       mediaRecorder.start();
@@ -377,7 +379,7 @@ startCamera();  // ← call directly, no waiting
       const bodyScore = computeBodyScore();
 
       try {
-        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const blob = new Blob(recordedChunks, { type: mimeType || "audio/webm" });
         const formData = new FormData();
         formData.append("file", blob, "answer.webm");
         const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });

@@ -18,9 +18,8 @@ import subprocess
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timezone
 import re
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 from feedback import analyze_speech_full
 from auth import router as auth_router, get_db
 from reminders import router as reminders_router
@@ -48,13 +47,17 @@ app.include_router(sessions_router)
 
 # ── EMAIL SENDER ──────────────────────────────────────────
 def send_email(to_email: str):
-    sender = os.getenv("GMAIL_USER")
-    password = os.getenv("GMAIL_APP_PASSWORD")
-
-    msg = MIMEMultipart("alternative")
-    msg["From"] = f"uSpeak <{sender}>"
-    msg["To"] = to_email
-    msg["Subject"] = "Your daily speaking session is waiting 🎙️"
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
+    
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+        sib_api_v3_sdk.ApiClient(configuration)
+    )
+    
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+        to=[{"email": to_email}],
+        sender={"email": "veekshac18@gmail.com", "name": "uSpeak"},
+        subject="Your daily speaking session is waiting 🎙️",
     
     # Define your beautiful HTML template
     html_content = """
@@ -130,10 +133,8 @@ def send_email(to_email: str):
 </body>
 </html>
 """
-    msg.attach(MIMEText(html_content, "html"))
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(sender, password)
-        server.sendmail(sender, to_email, msg.as_string())
+    )
+    api_instance.send_transac_email(send_smtp_email)
 
 
 # ── SCHEDULER ─────────────────────────────────────────────

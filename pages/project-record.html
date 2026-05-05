@@ -140,6 +140,7 @@
     const liveIndicators = document.getElementById("liveIndicators");
     const mpLoading      = document.getElementById("mpLoading");
 
+    let mimeType = "";
     let mediaRecorder, recordedChunks = [], isRecording = false;
     let stream, timerInterval, seconds = 0;
     let bodySamples = [], lastLandmarks = null, sampleInterval = null;
@@ -224,7 +225,9 @@
       seconds        = 0;
       timerEl.textContent = "00:00";
 
-      mediaRecorder = new MediaRecorder(stream);
+      mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+         : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
       mediaRecorder.onstop = handleRecordingStop;
       mediaRecorder.start();
@@ -265,7 +268,7 @@
       const bodyLanguageScore = computeBodyLanguageScore();
 
       try {
-        const blob = new Blob(recordedChunks, { type: mimeType || "video/webm" });
+        const blob = new Blob(recordedChunks, { type: mimeType || "audio/webm" });
         const formData = new FormData();
         formData.append("file", blob, "recording.webm");
 

@@ -293,6 +293,7 @@
   </div>
 
   <script>
+    fetch("https://uspeak-backend.onrender.com/docs").catch(() => {});
     async function selectVibe(vibe) {
       localStorage.setItem("selectedVibe", vibe);
       document.getElementById("loadingOverlay").classList.add("active");
