@@ -18,8 +18,6 @@ import subprocess
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timezone
 import re
-import sib_api_v3_sdk
-from sib_api_v3_sdk.rest import ApiException
 from feedback import analyze_speech_full
 from auth import router as auth_router, get_db
 from reminders import router as reminders_router
@@ -46,13 +44,9 @@ app.include_router(reminders_router)
 app.include_router(sessions_router)
 
 # ── EMAIL SENDER ──────────────────────────────────────────
+import httpx
+
 def send_email(to_email: str):
-    configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
-    
-    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
-        sib_api_v3_sdk.ApiClient(configuration)
-    )
     html_content = """
 <!DOCTYPE html>
 <html>
@@ -126,13 +120,21 @@ def send_email(to_email: str):
 </body>
 </html>
 """
-    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-        to=[{"email": to_email}],
-        sender={"email": "uspeak.appofficial@gmail.com", "name": "uSpeak"},
-        subject="Your daily speaking session is waiting 🎙️",
-        html_content=html_content
+    response = httpx.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {os.getenv('RESEND_API_KEY')}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "from": "uSpeak <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": "Your daily speaking session is waiting 🎙️",
+            "html": html_content
+        }
     )
-    api_instance.send_transac_email(send_smtp_email)
+    if response.status_code != 200:
+        raise Exception(f"Resend error: {response.status_code} - {response.text}")
 
 
 # ── SCHEDULER ─────────────────────────────────────────────
