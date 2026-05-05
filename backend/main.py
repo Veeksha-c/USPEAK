@@ -18,7 +18,9 @@ import subprocess
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timezone
 import re
-
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from feedback import analyze_speech_full
 from auth import router as auth_router, get_db
 from reminders import router as reminders_router
@@ -45,13 +47,14 @@ app.include_router(reminders_router)
 app.include_router(sessions_router)
 
 # ── EMAIL SENDER ──────────────────────────────────────────
-
-import resend
-import os
-
 def send_email(to_email: str):
-    # Initialize Resend with your API key
-    resend.api_key = os.getenv("RESEND_API_KEY")
+    sender = os.getenv("GMAIL_USER")
+    password = os.getenv("GMAIL_APP_PASSWORD")
+
+    msg = MIMEMultipart("alternative")
+    msg["From"] = f"uSpeak <{sender}>"
+    msg["To"] = to_email
+    msg["Subject"] = "Your daily speaking session is waiting 🎙️"
     
     # Define your beautiful HTML template
     html_content = """
@@ -127,12 +130,10 @@ def send_email(to_email: str):
 </body>
 </html>
 """
-    resend.Emails.send({
-        "from": "uSpeak <onboarding@resend.dev>",
-        "to": [to_email],
-        "subject": "Your daily speaking session is waiting 🎙️",
-        "html": html_content,
-    })
+    msg.attach(MIMEText(html, "html"))
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(sender, password)
+        server.sendmail(sender, to_email, msg.as_string())
 
 
 # ── SCHEDULER ─────────────────────────────────────────────
