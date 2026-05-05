@@ -49,16 +49,15 @@ app.include_router(sessions_router)
 
 # ── EMAIL SENDER ──────────────────────────────────────────
 
+import resend
+import os
+
 def send_email(to_email: str):
-    sender = os.getenv("GMAIL_USER")
-    password = os.getenv("GMAIL_APP_PASSWORD")
-
-    msg = MIMEMultipart("alternative")
-    msg["From"] = f"uSpeak App <{sender}>"
-    msg["To"] = to_email
-    msg["Subject"] = "Your daily speaking session is waiting 🎙️"
-
-    html = """
+    # Initialize Resend with your API key
+    resend.api_key = os.getenv("RESEND_API_KEY")
+    
+    # Define your beautiful HTML template
+    html_content = """
 <!DOCTYPE html>
 <html>
 <body style="margin:0; padding:0; background-color:#0a0a0a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
@@ -131,11 +130,21 @@ def send_email(to_email: str):
 </body>
 </html>
 """
-    msg.attach(MIMEText(html, "html"))
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(sender, password)
-        server.sendmail(sender, to_email, msg.as_string())
+
+    # Send using Resend API
+    params = {
+        "from": "uSpeak App <onboarding@resend.dev>",
+        "to": [to_email],
+        "subject": "Your daily speaking session is waiting 🎙️",
+        "html": html_content,
+    }
+
+    try:
+        email = resend.Emails.send(params)
+        return email
+    except Exception as e:
+        print(f"Failed to send email via Resend: {e}")
+        return None
 
 
 # ── SCHEDULER ─────────────────────────────────────────────
