@@ -294,6 +294,7 @@
 
   <script>
     async function selectVibe(vibe) {
+      localStorage.setItem("selectedVibe", vibe);
       document.getElementById("loadingOverlay").classList.add("active");
       document.querySelectorAll(".vibe-card").forEach(b => b.disabled = true);
 

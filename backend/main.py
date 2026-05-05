@@ -14,10 +14,7 @@ from typing import List
 from groq import Groq
 import tempfile
 import shutil
-import smtplib
 import subprocess
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timezone
 import re
@@ -130,21 +127,12 @@ def send_email(to_email: str):
 </body>
 </html>
 """
-
-    # Send using Resend API
-    params = {
-        "from": "uSpeak App <onboarding@resend.dev>",
+resend.Emails.send({
+        "from": "uSpeak <onboarding@resend.dev>",
         "to": [to_email],
         "subject": "Your daily speaking session is waiting 🎙️",
         "html": html_content,
-    }
-
-    try:
-        email = resend.Emails.send(params)
-        return email
-    except Exception as e:
-        print(f"Failed to send email via Resend: {e}")
-        return None
+    })
 
 
 # ── SCHEDULER ─────────────────────────────────────────────
@@ -270,33 +258,48 @@ Generate the topic now:
     topic = completion.choices[0].message.content.strip()
     return {"topic": topic}
 
-
 @app.post("/transcribe")
 async def transcribe_video(file: UploadFile = File(...)):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
-        shutil.copyfileobj(file.file, temp_video)
-        video_path = temp_video.name
+    content_type = file.content_type or ""
+    suffix = ".mp4" if "mp4" in content_type else ".webm"
 
-    audio_path = video_path.replace(".mp4", ".mp3")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        file_path = tmp.name
+
+    # Try direct transcription first (works for audio — no ffmpeg needed)
+    try:
+        with open(file_path, "rb") as f:
+            transcription = client.audio.transcriptions.create(
+                model="whisper-large-v3-turbo",
+                file=f,
+                response_format="text"
+            )
+        os.unlink(file_path)
+        print(f"DEBUG: Transcript is: {transcription}")
+        return {"transcript": transcription}
+    except Exception as e:
+        print(f"Direct transcription failed, trying ffmpeg: {e}")
+
+    # Fallback: ffmpeg for video files
+    audio_path = file_path.replace(suffix, ".mp3")
     subprocess.run([
-        "ffmpeg", "-i", video_path,
+        "ffmpeg", "-i", file_path,
         "-q:a", "0", "-map", "a",
         audio_path, "-y"
     ], check=True)
 
-    with open(audio_path, "rb") as audio_file:
+    with open(audio_path, "rb") as f:
         transcription = client.audio.transcriptions.create(
             model="whisper-large-v3-turbo",
-            file=audio_file,
+            file=f,
             response_format="text"
         )
 
-    os.unlink(video_path)
+    os.unlink(file_path)
     os.unlink(audio_path)
-
-    transcript = transcription
-    print(f"DEBUG: Transcript is: {transcript}")
-    return {"transcript": transcript}
+    print(f"DEBUG: Transcript is: {transcription}")
+    return {"transcript": transcription}
 
 
 class AnalysisRequest(BaseModel):

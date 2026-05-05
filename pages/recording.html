@@ -140,8 +140,12 @@ if (topic) document.getElementById("recordTopic").innerText = topic;
 
 // ── GLOBALS ───────────────────────────────────────────
 let mimeType = "";
-let mediaRecorder, recordedChunks = [], isRecording = false;
-let stream, timerInterval, seconds = 0;
+let audioMimeType = "";
+let mediaRecorder, audioRecorder;
+let recordedChunks = [], audioChunks = [];
+let isRecording = false;
+let stream, audioStream;
+let timerInterval, seconds = 0;
 let bodySamples = [], lastLandmarks = null, sampleInterval = null;
 let holisticReady = false;
 
@@ -166,8 +170,12 @@ holistic.onResults(results => { lastLandmarks = results; });
 // ── CAMERA ────────────────────────────────────────────
 async function startCamera() {
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    // Video stream for camera display + body language
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     video.srcObject = stream;
+
+    // Separate audio stream for recording
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     if (!isMobile) {
       const mpCamera = new Camera(video, {
@@ -186,27 +194,41 @@ async function startCamera() {
   } catch (err) {
     mpLoading.classList.add("hidden");
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       video.srcObject = stream;
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch(e) {
       alert("Camera or microphone access denied.");
     }
   }
 }
 
-// Only initialize MediaPipe on desktop
 if (!isMobile) {
   holistic.initialize()
     .then(startCamera)
     .catch(startCamera);
 } else {
-  loadFaceApiAndStart(); // lightweight detection on mobile
+  loadFaceApiAndStart();
+}
+
+// ── MOBILE: FACE-API.JS ───────────────────────────────
+async function loadFaceApiAndStart() {
+  try {
+    const MODEL_URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights";
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    ]);
+    console.log("✅ face-api models loaded");
+  } catch (e) {
+    console.warn("face-api failed to load, using defaults", e);
+  }
+  await startCamera();
 }
 
 // ── BODY LANGUAGE SCORING ─────────────────────────────
 function sampleBodyLanguage() {
   if (!lastLandmarks) return;
-
   const r = lastLandmarks;
   let postureScore = 5, eyeScore = 5, gestureScore = 4;
 
@@ -234,10 +256,46 @@ function sampleBodyLanguage() {
   if (r.leftHandLandmarks || r.rightHandLandmarks) gestureScore = 8;
 
   updateDot("postureIndicator", postureScore);
-  updateDot("eyeIndicator",     eyeScore);
+  updateDot("eyeIndicator", eyeScore);
   updateDot("gestureIndicator", gestureScore);
-
   bodySamples.push({ posture: postureScore, eye: eyeScore, gesture: gestureScore });
+}
+
+async function sampleBodyLanguageMobile() {
+  if (!stream) return;
+  try {
+    const detection = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks(true);
+
+    if (!detection) {
+      bodySamples.push({ posture: 5, eye: 3, gesture: 5 });
+      updateDot("postureIndicator", 5);
+      updateDot("eyeIndicator", 3);
+      updateDot("gestureIndicator", 5);
+      return;
+    }
+
+    const landmarks = detection.landmarks;
+    const nose = landmarks.getNose();
+    const leftEye = landmarks.getLeftEye();
+    const rightEye = landmarks.getRightEye();
+    const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
+    const eyeCenterY = (leftEye[0].y + rightEye[3].y) / 2;
+    const { width } = detection.detection.box;
+    const offsetX = Math.abs(nose[3].x - eyeCenterX) / width;
+    const offsetY = Math.abs(nose[3].y - eyeCenterY) / width;
+    const eyeScore = Math.max(1, Math.min(10, Math.round(10 - (offsetX + offsetY) * 15)));
+    const faceRatio = detection.detection.box.width / video.videoWidth;
+    const postureScore = Math.max(1, Math.min(10, Math.round(faceRatio * 30)));
+
+    updateDot("postureIndicator", postureScore);
+    updateDot("eyeIndicator", eyeScore);
+    updateDot("gestureIndicator", 5);
+    bodySamples.push({ posture: postureScore, eye: eyeScore, gesture: 5 });
+  } catch (e) {
+    console.warn("face-api sample error:", e);
+  }
 }
 
 function updateDot(id, score) {
@@ -256,97 +314,33 @@ recordBtn.addEventListener("click", () => {
   if (!isRecording) startRecording();
   else stopRecording();
 });
-// ── MOBILE: FACE-API.JS ───────────────────────────────
-async function loadFaceApiAndStart() {
-  try {
-    // Load lightweight models
-    const MODEL_URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights";
-    await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-      faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-    ]);
-    console.log("✅ face-api models loaded");
-  } catch (e) {
-    console.warn("face-api failed to load, using defaults", e);
-  }
-  await startCamera();
-}
 
-// Mobile body language sampling using face-api
-async function sampleBodyLanguageMobile() {
-  if (!stream) return;
-
-  try {
-    const detection = await faceapi
-      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-      .withFaceLandmarks(true);
-
-    if (!detection) {
-      // No face detected — bad eye contact
-      bodySamples.push({ posture: 5, eye: 3, gesture: 5 });
-      updateDot("postureIndicator", 5);
-      updateDot("eyeIndicator", 3);
-      updateDot("gestureIndicator", 5);
-      return;
-    }
-
-    const landmarks = detection.landmarks;
-    const nose = landmarks.getNose();
-    const leftEye = landmarks.getLeftEye();
-    const rightEye = landmarks.getRightEye();
-
-    // Eye contact: how centered is the nose relative to eyes
-    const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
-    const eyeCenterY = (leftEye[0].y + rightEye[3].y) / 2;
-    const noseX = nose[3].x;
-    const noseY = nose[3].y;
-
-    const { width, height } = detection.detection.box;
-    const offsetX = Math.abs(noseX - eyeCenterX) / width;
-    const offsetY = Math.abs(noseY - eyeCenterY) / height;
-    const eyeScore = Math.max(1, Math.min(10, Math.round(10 - (offsetX + offsetY) * 15)));
-
-    // Posture: face size relative to video (closer = better posture)
-    const faceRatio = detection.detection.box.width / video.videoWidth;
-    const postureScore = Math.max(1, Math.min(10, Math.round(faceRatio * 30)));
-
-    // Gesture: always neutral on mobile (no hand detection)
-    const gestureScore = 5;
-
-    updateDot("postureIndicator", postureScore);
-    updateDot("eyeIndicator", eyeScore);
-    updateDot("gestureIndicator", gestureScore);
-
-    bodySamples.push({ posture: postureScore, eye: eyeScore, gesture: gestureScore });
-
-  } catch (e) {
-    console.warn("face-api sample error:", e);
-  }
-}
 function startRecording() {
-  if (!stream) { alert("Camera not ready yet."); return; }
+  if (!stream || !audioStream) { alert("Camera not ready yet."); return; }
   localStorage.removeItem("analysis");
   localStorage.removeItem("transcript");
   recordedChunks = [];
-  bodySamples    = [];
-  seconds        = 0;
+  audioChunks = [];
+  bodySamples = [];
+  seconds = 0;
   timerEl.textContent = "00:00";
 
-  mimeType = MediaRecorder.isTypeSupported("video/webm")
-    ? "video/webm"
-    : MediaRecorder.isTypeSupported("video/mp4")
-    ? "video/mp4"
+  // ✅ Audio only recorder — much faster than video
+  audioMimeType = MediaRecorder.isTypeSupported("audio/webm")
+    ? "audio/webm"
+    : MediaRecorder.isTypeSupported("audio/mp4")
+    ? "audio/mp4"
     : "";
 
-  mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-  mediaRecorder.onstop = handleRecordingStop;
-  mediaRecorder.start();
+  audioRecorder = new MediaRecorder(audioStream, audioMimeType ? { mimeType: audioMimeType } : {});
+  audioRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+  audioRecorder.start();
+
   isRecording = true;
 
   sampleInterval = isMobile
-  ? setInterval(sampleBodyLanguageMobile, 1500)  // slower on mobile to save CPU
-  : setInterval(sampleBodyLanguage, 1000);
+    ? setInterval(sampleBodyLanguageMobile, 1500)
+    : setInterval(sampleBodyLanguage, 1000);
 
   recordBtn.classList.add("recording");
   recBadge.classList.add("visible");
@@ -367,7 +361,8 @@ function stopRecording() {
   isRecording = false;
   clearInterval(timerInterval);
   clearInterval(sampleInterval);
-  mediaRecorder.stop();
+  audioRecorder.stop();
+  audioRecorder.onstop = handleRecordingStop;
   recordBtn.classList.remove("recording");
   recBadge.classList.remove("visible");
   liveIndicators.classList.remove("visible");
@@ -383,9 +378,10 @@ async function handleRecordingStop() {
   console.log(`Body language: ${bodyLanguageScore}/10 from ${bodySamples.length} samples`);
 
   try {
-    const blob = new Blob(recordedChunks, { type: mimeType || "video/webm" });
+    // ✅ Send audio blob directly — no ffmpeg conversion needed!
+    const audioBlob = new Blob(audioChunks, { type: audioMimeType || "audio/webm" });
     const formData = new FormData();
-    formData.append("file", blob, "recording.webm");
+    formData.append("file", audioBlob, "recording.webm");
 
     const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
     const data = await res.json();
@@ -411,6 +407,24 @@ async function handleRecordingStop() {
       avgScore: isNaN(avg) ? 5 : Math.round(avg * 10) / 10
     });
     localStorage.setItem("sessions", JSON.stringify(sessions.slice(-10)));
+
+    // ✅ Save to backend
+    const token = localStorage.getItem("token");
+    if (token) {
+      fetch("https://uspeak-backend.onrender.com/sessions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          avgScore: isNaN(avg) ? 5 : Math.round(avg * 10) / 10,
+          date: new Date().toISOString().split("T")[0],
+          vibe: localStorage.getItem("selectedVibe") || "general",
+          scores: sc
+        })
+      }).catch(err => console.warn("Session save failed:", err));
+    }
 
   } catch (err) {
     console.error("Processing failed:", err);
