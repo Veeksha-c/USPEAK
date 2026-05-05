@@ -130,7 +130,7 @@ def send_email(to_email: str):
 </body>
 </html>
 """
-    msg.attach(MIMEText(html, "html"))
+    msg.attach(MIMEText(html_content, "html"))
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender, password)
         server.sendmail(sender, to_email, msg.as_string())
