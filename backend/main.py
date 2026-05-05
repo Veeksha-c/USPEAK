@@ -127,7 +127,7 @@ def send_email(to_email: str):
 </body>
 </html>
 """
-resend.Emails.send({
+    resend.Emails.send({
         "from": "uSpeak <onboarding@resend.dev>",
         "to": [to_email],
         "subject": "Your daily speaking session is waiting 🎙️",
