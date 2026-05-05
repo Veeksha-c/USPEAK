@@ -130,200 +130,186 @@
 
   <script>
     const video          = document.getElementById("video");
-    const recordBtn      = document.getElementById("recordBtn");
-    const nextBtn        = document.getElementById("nextBtn");
-    const recBadge       = document.getElementById("recBadge");
-    const timerEl        = document.getElementById("timer");
-    const btnLabel       = document.getElementById("btnLabel");
-    const spinner        = document.getElementById("loadingSpinner");
-    const spinnerLabel   = document.getElementById("spinnerLabel");
-    const liveIndicators = document.getElementById("liveIndicators");
-    const mpLoading      = document.getElementById("mpLoading");
+const recordBtn      = document.getElementById("recordBtn");
+const nextBtn        = document.getElementById("nextBtn");
+const recBadge       = document.getElementById("recBadge");
+const timerEl        = document.getElementById("timer");
+const btnLabel       = document.getElementById("btnLabel");
+const spinner        = document.getElementById("loadingSpinner");
+const spinnerLabel   = document.getElementById("spinnerLabel");
+const liveIndicators = document.getElementById("liveIndicators");
+const mpLoading      = document.getElementById("mpLoading");
 
-    let mimeType = "";
-    let mediaRecorder, recordedChunks = [], isRecording = false;
-    let stream, timerInterval, seconds = 0;
-    let bodySamples = [], lastLandmarks = null, sampleInterval = null;
+// ── GLOBALS ───────────────────────────────────────────
+let stream, audioStream;
+let audioRecorder, audioChunks = [];
+let audioMimeType = "";
+let isRecording = false;
+let timerInterval, seconds = 0;
+let bodySamples = [], lastLandmarks = null, sampleInterval = null;
 
-    // ── MEDIAPIPE ─────────────────────────────────────────
-    let holisticReady = false;
-    const holistic = new Holistic({
-      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${f}`
+// ── MEDIAPIPE ─────────────────────────────────────────
+let holisticReady = false;
+const holistic = new Holistic({
+  locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${f}`
+});
+holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, refineFaceLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+holistic.onResults(results => { lastLandmarks = results; });
+
+// ── CAMERA ────────────────────────────────────────────
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    video.srcObject = stream;
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    const mpCamera = new Camera(video, {
+      onFrame: async () => { if (holisticReady) await holistic.send({ image: video }); },
+      width: 640, height: 480
     });
-    holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, refineFaceLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-    holistic.onResults(results => { lastLandmarks = results; });
+    await mpCamera.start();
+    holisticReady = true;
+    mpLoading.classList.add("hidden");
+  } catch (err) {
+    mpLoading.classList.add("hidden");
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      video.srcObject = stream;
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch(e) { alert("Camera or microphone access denied."); }
+  }
+}
+holistic.initialize().then(startCamera).catch(startCamera);
 
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        video.srcObject = stream;
-        const mpCamera = new Camera(video, {
-          onFrame: async () => { if (holisticReady) await holistic.send({ image: video }); },
-          width: 640, height: 480
-        });
-        await mpCamera.start();
-        holisticReady = true;
-        mpLoading.classList.add("hidden");
-      } catch (err) {
-        mpLoading.classList.add("hidden");
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          video.srcObject = stream;
-        } catch(e) { alert("Camera or microphone access denied."); }
-      }
+// ── BODY LANGUAGE ─────────────────────────────────────
+function sampleBodyLanguage() {
+  if (!lastLandmarks) return;
+  const r = lastLandmarks;
+  let postureScore = 5, eyeScore = 5, gestureScore = 4;
+  if (r.poseLandmarks) {
+    const ls = r.poseLandmarks[11], rs = r.poseLandmarks[12];
+    if (ls && rs) { const diff = Math.abs(ls.y - rs.y); postureScore = Math.max(1, Math.min(10, Math.round(10 - diff * 80))); }
+  }
+  if (r.faceLandmarks) {
+    const nose = r.faceLandmarks[1], lEye = r.faceLandmarks[33], rEye = r.faceLandmarks[263];
+    if (nose && lEye && rEye) {
+      const cx = (lEye.x + rEye.x) / 2, cy = (lEye.y + rEye.y) / 2;
+      const offset = Math.abs(nose.x - cx) + Math.abs(nose.y - cy);
+      eyeScore = Math.max(1, Math.min(10, Math.round(10 - offset * 60)));
     }
-    holistic.initialize().then(startCamera).catch(startCamera);
+  }
+  if (r.leftHandLandmarks || r.rightHandLandmarks) gestureScore = 8;
+  updateDot("postureIndicator", postureScore);
+  updateDot("eyeIndicator", eyeScore);
+  updateDot("gestureIndicator", gestureScore);
+  bodySamples.push({ posture: postureScore, eye: eyeScore, gesture: gestureScore });
+}
 
-    // ── BODY LANGUAGE SCORING ─────────────────────────────
-    function sampleBodyLanguage() {
-      if (!lastLandmarks) return;
-      const r = lastLandmarks;
-      let postureScore = 5, eyeScore = 5, gestureScore = 4;
-      if (r.poseLandmarks) {
-        const ls = r.poseLandmarks[11], rs = r.poseLandmarks[12];
-        if (ls && rs) { const diff = Math.abs(ls.y - rs.y); postureScore = Math.max(1, Math.min(10, Math.round(10 - diff * 80))); }
-      }
-      if (r.faceLandmarks) {
-        const nose = r.faceLandmarks[1], lEye = r.faceLandmarks[33], rEye = r.faceLandmarks[263];
-        if (nose && lEye && rEye) {
-          const cx = (lEye.x + rEye.x) / 2, cy = (lEye.y + rEye.y) / 2;
-          const offset = Math.abs(nose.x - cx) + Math.abs(nose.y - cy);
-          eyeScore = Math.max(1, Math.min(10, Math.round(10 - offset * 60)));
-        }
-      }
-      if (r.leftHandLandmarks || r.rightHandLandmarks) gestureScore = 8;
-      updateDot("postureIndicator", postureScore);
-      updateDot("eyeIndicator", eyeScore);
-      updateDot("gestureIndicator", gestureScore);
-      bodySamples.push({ posture: postureScore, eye: eyeScore, gesture: gestureScore });
-    }
+function updateDot(id, score) {
+  const dot = document.getElementById(id);
+  dot.className = "indicator-dot " + (score >= 7 ? "good" : score >= 4 ? "mid" : "bad");
+}
 
-    function updateDot(id, score) {
-      const dot = document.getElementById(id);
-      dot.className = "indicator-dot " + (score >= 7 ? "good" : score >= 4 ? "mid" : "bad");
-    }
+function computeBodyLanguageScore() {
+  if (bodySamples.length === 0) return 5;
+  const avg = key => bodySamples.reduce((s, x) => s + x[key], 0) / bodySamples.length;
+  return Math.round(((avg("posture") * 0.4) + (avg("eye") * 0.4) + (avg("gesture") * 0.2)) * 10) / 10;
+}
 
-    function computeBodyLanguageScore() {
-      if (bodySamples.length === 0) return 5;
-      const avg = key => bodySamples.reduce((s, x) => s + x[key], 0) / bodySamples.length;
-      return Math.round(((avg("posture") * 0.4) + (avg("eye") * 0.4) + (avg("gesture") * 0.2)) * 10) / 10;
-    }
+// ── RECORDING ─────────────────────────────────────────
+recordBtn.addEventListener("click", () => {
+  if (!isRecording) startRecording();
+  else stopRecording();
+});
 
-    // ── RECORDING ─────────────────────────────────────────
-    recordBtn.addEventListener("click", () => {
-      if (!isRecording) startRecording();
-      else stopRecording();
+function startRecording() {
+  if (!stream || !audioStream) { alert("Camera not ready yet."); return; }
+
+  localStorage.removeItem("projectTranscript");
+  localStorage.removeItem("projectAnalysis");
+  localStorage.removeItem("projectQuestions");
+  audioChunks = [];
+  bodySamples = [];
+  seconds = 0;
+  timerEl.textContent = "00:00";
+
+  audioMimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+    : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+
+  audioRecorder = new MediaRecorder(audioStream, audioMimeType ? { mimeType: audioMimeType } : {});
+  audioRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+  audioRecorder.start();
+  isRecording = true;
+
+  sampleInterval = setInterval(sampleBodyLanguage, 1000);
+  recordBtn.classList.add("recording");
+  recBadge.classList.add("visible");
+  liveIndicators.classList.add("visible");
+  nextBtn.classList.remove("visible");
+  btnLabel.textContent = "Tap to stop";
+
+  const maxSeconds = parseInt(localStorage.getItem("sessionLength") || "2") * 60;
+  timerInterval = setInterval(() => {
+    seconds++;
+    timerEl.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
+    if (seconds >= maxSeconds) stopRecording();
+  }, 1000);
+}
+
+function stopRecording() {
+  if (!isRecording) return;
+  isRecording = false;
+  clearInterval(timerInterval);
+  clearInterval(sampleInterval);
+  audioRecorder.stop();
+  audioRecorder.onstop = handleRecordingStop;
+  recordBtn.classList.remove("recording");
+  recBadge.classList.remove("visible");
+  liveIndicators.classList.remove("visible");
+  btnLabel.textContent = "Tap to record";
+}
+
+async function handleRecordingStop() {
+  spinner.classList.add("visible");
+  recordBtn.disabled = true;
+  btnLabel.textContent = "";
+
+  const bodyLanguageScore = computeBodyLanguageScore();
+
+  try {
+    const audioBlob = new Blob(audioChunks, { type: audioMimeType || "audio/webm" });
+    const formData = new FormData();
+    formData.append("file", audioBlob, "recording.webm");
+
+    spinnerLabel.textContent = "Transcribing your explanation...";
+    const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
+    const data = await res.json();
+    const transcript = data.transcript;
+
+    localStorage.setItem("projectTranscript", transcript);
+    localStorage.setItem("projectBodyScore", bodyLanguageScore);
+
+    spinnerLabel.textContent = "Generating your interview questions...";
+    const qRes = await fetch("https://uspeak-backend.onrender.com/generate-project-questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript })
     });
-function getSupportedMimeType() {
-  const types = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "video/webm;codecs=vp8,opus",
-    "video/webm",
-    ""
-  ];
-  for (const type of types) {
-    if (type === "" || MediaRecorder.isTypeSupported(type)) return type;
+    const qData = await qRes.json();
+    localStorage.setItem("projectQuestions", JSON.stringify(qData.questions));
+
+  } catch (err) {
+    console.error("Processing failed:", err);
+    alert("Something went wrong. Please try again.");
+  } finally {
+    spinner.classList.remove("visible");
+    recordBtn.disabled = false;
+    btnLabel.textContent = "Record again";
+    nextBtn.classList.add("visible");
   }
-  return "";
 }
-    function startRecording() {
-      if (!stream) { alert("Camera not ready yet."); return; }
-      const tracks = stream.getTracks();
-  if (tracks.length === 0 || tracks[0].readyState === "ended") {
-    alert("Camera stream ended. Please refresh.");
-    return;
-  }
-      localStorage.removeItem("projectTranscript");
-      localStorage.removeItem("projectAnalysis");
-      localStorage.removeItem("projectQuestions");
-      recordedChunks = [];
-      bodySamples    = [];
-      seconds        = 0;
-      timerEl.textContent = "00:00";
 
-      mimeType = getSupportedMimeType();
-try {
-  mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-} catch (e) {
-  mediaRecorder = new MediaRecorder(stream); // fallback: no mimeType at all
-  mimeType = "";
-}
-      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-      mediaRecorder.onstop = handleRecordingStop;
-      mediaRecorder.start();
-      isRecording = true;
-
-      sampleInterval = setInterval(sampleBodyLanguage, 1000);
-      recordBtn.classList.add("recording");
-      recBadge.classList.add("visible");
-      liveIndicators.classList.add("visible");
-      nextBtn.classList.remove("visible");
-      btnLabel.textContent = "Tap to stop";
-
-      const maxSeconds = parseInt(localStorage.getItem("sessionLength") || "2") * 60;
-      timerInterval = setInterval(() => {
-        seconds++;
-        timerEl.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
-        if (seconds >= maxSeconds) stopRecording();
-      }, 1000);
-    }
-
-    function stopRecording() {
-      if (!isRecording) return;
-      isRecording = false;
-      clearInterval(timerInterval);
-      clearInterval(sampleInterval);
-      mediaRecorder.stop();
-      recordBtn.classList.remove("recording");
-      recBadge.classList.remove("visible");
-      liveIndicators.classList.remove("visible");
-      btnLabel.textContent = "Tap to record";
-    }
-
-    async function handleRecordingStop() {
-      spinner.classList.add("visible");
-      recordBtn.disabled = true;
-      btnLabel.textContent = "";
-
-      const bodyLanguageScore = computeBodyLanguageScore();
-
-      try {
-        const blob = new Blob(recordedChunks, { type: mimeType || "audio/webm" });
-        const formData = new FormData();
-        formData.append("file", blob, "recording.webm");
-
-        spinnerLabel.textContent = "Transcribing your explanation...";
-        const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
-        const data = await res.json();
-        const transcript = data.transcript;
-
-        localStorage.setItem("projectTranscript", transcript);
-        localStorage.setItem("projectBodyScore", bodyLanguageScore);
-
-        // Generate questions from the project explanation
-        spinnerLabel.textContent = "Generating your interview questions...";
-        const qRes = await fetch("https://uspeak-backend.onrender.com/generate-project-questions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcript })
-        });
-        const qData = await qRes.json();
-        localStorage.setItem("projectQuestions", JSON.stringify(qData.questions));
-
-      } catch (err) {
-        console.error("Processing failed:", err);
-        alert("Something went wrong. Please try again.");
-      } finally {
-        spinner.classList.remove("visible");
-        recordBtn.disabled = false;
-        btnLabel.textContent = "Record again";
-        nextBtn.classList.add("visible");
-      }
-    }
-
-    nextBtn.addEventListener("click", () => { window.location.href = "./project-qa.html"; });
+nextBtn.addEventListener("click", () => { window.location.href = "./project-qa.html"; });
   </script>
 </body>
 </html>

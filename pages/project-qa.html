@@ -217,9 +217,11 @@
     let currentQ     = 0;
     let qaAnswers    = [];   // { question, transcript, skipped }
     let qaBodyScores = [];   // body language per answer
-
+    let audioStream;
+    let audioMimeType = "";
+    let audioRecorder, audioChunks = [];
     // Recording state
-    let stream, mediaRecorder, recordedChunks = [], isRecording = false;
+    let isRecording = false;
     let timerInterval, seconds = 0;
     let bodySamples = [], lastLandmarks = null, sampleInterval = null;
     let pendingTranscript = null;   // transcript after recording, before submit/skip
@@ -258,12 +260,12 @@ holistic.onResults(r => { lastLandmarks = r; });
 
 // Start camera IMMEDIATELY — don't wait for Holistic
 async function startCamera() {
-    try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     video.srcObject = stream;
-    mpLoading.classList.add("hidden");   // ← hide loading as soon as camera is up
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mpLoading.classList.add("hidden");
 
-    // Try to attach MediaPipe in background AFTER camera is running
     holistic.initialize().then(() => {
       holisticReady = true;
       const mpCam = new Camera(video, {
@@ -271,10 +273,7 @@ async function startCamera() {
         width: 640, height: 480
       });
       mpCam.start();
-    }).catch(err => {
-      console.warn("MediaPipe failed, body scoring disabled:", err);
-      // Camera still works, body score will default to 5
-    });
+    }).catch(err => console.warn("MediaPipe failed:", err));
 
   } catch (err) {
     mpLoading.classList.add("hidden");
@@ -346,49 +345,45 @@ function getSupportedMimeType() {
 }
 
     function startRecording() {
-      if (!stream) { alert("Camera not ready."); return; }
-      recordedChunks = [];
-      bodySamples    = [];
-      seconds        = 0;
-      pendingTranscript = null;
-      timerEl.textContent = "00:00";
-      actionRow.classList.remove("visible");
+  if (!stream || !audioStream) { alert("Camera not ready."); return; }
+  audioChunks = [];
+  bodySamples = [];
+  seconds = 0;
+  pendingTranscript = null;
+  timerEl.textContent = "00:00";
+  actionRow.classList.remove("visible");
 
-      mimeType = getSupportedMimeType();
-try {
-  mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-} catch (e) {
-  mediaRecorder = new MediaRecorder(stream); // fallback: no mimeType at all
-  mimeType = "";
+  audioMimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+    : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+
+  audioRecorder = new MediaRecorder(audioStream, audioMimeType ? { mimeType: audioMimeType } : {});
+  audioRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+  audioRecorder.onstop = handleStop;
+  audioRecorder.start();
+  isRecording = true;
+
+  sampleInterval = setInterval(sampleBody, 1000);
+  recordBtn.classList.add("recording");
+  recBadge.classList.add("visible");
+  btnLabel.textContent = "Tap to stop";
+
+  timerInterval = setInterval(() => {
+    seconds++;
+    timerEl.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
+    if (seconds >= 90) stopRecording();
+  }, 1000);
 }
-      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-      mediaRecorder.onstop = handleStop;
-      mediaRecorder.start();
-      isRecording = true;
-
-      sampleInterval = setInterval(sampleBody, 1000);
-      recordBtn.classList.add("recording");
-      recBadge.classList.add("visible");
-      btnLabel.textContent = "Tap to stop";
-
-      // Max 90 seconds per answer
-      timerInterval = setInterval(() => {
-        seconds++;
-        timerEl.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
-        if (seconds >= 90) stopRecording();
-      }, 1000);
-    }
 
     function stopRecording() {
-      if (!isRecording) return;
-      isRecording = false;
-      clearInterval(timerInterval);
-      clearInterval(sampleInterval);
-      mediaRecorder.stop();
-      recordBtn.classList.remove("recording");
-      recBadge.classList.remove("visible");
-      btnLabel.textContent = "Tap to re-record";
-    }
+  if (!isRecording) return;
+  isRecording = false;
+  clearInterval(timerInterval);
+  clearInterval(sampleInterval);
+  audioRecorder.stop();
+  recordBtn.classList.remove("recording");
+  recBadge.classList.remove("visible");
+  btnLabel.textContent = "Tap to re-record";
+}
 
     async function handleStop() {
       transcribeSpinner.classList.add("visible");
@@ -397,7 +392,7 @@ try {
       const bodyScore = computeBodyScore();
 
       try {
-        const blob = new Blob(recordedChunks, { type: mimeType || "audio/webm" });
+        const blob = new Blob(audioChunks, { type: audioMimeType || "audio/webm" });
         const formData = new FormData();
         formData.append("file", blob, "answer.webm");
         const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
