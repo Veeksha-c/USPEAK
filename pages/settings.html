@@ -386,7 +386,16 @@
       currentReminderId = reminder.id;
 
       document.getElementById("emailInput").value = reminder.email || "";
-      document.getElementById("timeInput").value  = reminder.time  || "";
+      // Convert UTC back to IST for display (UTC + 5:30)
+if (reminder.time) {
+  const [h, m] = reminder.time.split(":").map(Number);
+  const totalMins = h * 60 + m + 330;
+  const istMins = totalMins % 1440;
+  const istH = Math.floor(istMins / 60);
+  const istM = istMins % 60;
+  document.getElementById("timeInput").value = 
+    `${String(istH).padStart(2,"0")}:${String(istM).padStart(2,"0")}`;
+}
       document.getElementById("activeToggle").checked = reminder.is_active !== false;
 
       const len = String(reminder.session_length || 2);
@@ -434,7 +443,16 @@
 
     document.getElementById("saveBtn").addEventListener("click", async () => {
       const email       = document.getElementById("emailInput").value.trim();
-      const time        = document.getElementById("timeInput").value;
+const localTime   = document.getElementById("timeInput").value; // user enters IST
+
+// Convert IST → UTC (IST = UTC + 5:30, so UTC = IST - 5:30)
+const [hours, minutes] = localTime.split(":").map(Number);
+const totalMinutes = hours * 60 + minutes - 330;
+const utcMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+const utcHours = Math.floor(utcMinutes / 60);
+const utcMins = utcMinutes % 60;
+const time = `${String(utcHours).padStart(2,"0")}:${String(utcMins).padStart(2,"0")}`;
+      
       const lengthInput = document.querySelector('input[name="length"]:checked');
       const isActive    = document.getElementById("activeToggle").checked;
 
