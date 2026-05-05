@@ -330,6 +330,20 @@ startCamera();  // ← call directly, no waiting
       if (!isRecording) startRecording();
       else stopRecording();
     });
+function getSupportedMimeType() {
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+    ""
+  ];
+  for (const type of types) {
+    if (type === "" || MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return "";
+}
 
     function startRecording() {
       if (!stream) { alert("Camera not ready."); return; }
@@ -340,9 +354,13 @@ startCamera();  // ← call directly, no waiting
       timerEl.textContent = "00:00";
       actionRow.classList.remove("visible");
 
-      mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
-         : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
-mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mimeType = getSupportedMimeType();
+try {
+  mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+} catch (e) {
+  mediaRecorder = new MediaRecorder(stream); // fallback: no mimeType at all
+  mimeType = "";
+}
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
       mediaRecorder.onstop = handleStop;
       mediaRecorder.start();

@@ -53,13 +53,6 @@ def send_email(to_email: str):
     api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
         sib_api_v3_sdk.ApiClient(configuration)
     )
-    
-    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-        to=[{"email": to_email}],
-        sender={"email": "veekshac18@gmail.com", "name": "uSpeak"},
-        subject="Your daily speaking session is waiting 🎙️",
-    
-    # Define your beautiful HTML template
     html_content = """
 <!DOCTYPE html>
 <html>
@@ -133,6 +126,11 @@ def send_email(to_email: str):
 </body>
 </html>
 """
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+        to=[{"email": to_email}],
+        sender={"email": "uspeak.appofficial@gmail.com", "name": "uSpeak"},
+        subject="Your daily speaking session is waiting 🎙️",
+        html_content=html_content
     )
     api_instance.send_transac_email(send_smtp_email)
 
