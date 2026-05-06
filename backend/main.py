@@ -29,7 +29,13 @@ print(f"GROQ_API_KEY loaded: {api_key[:10]}..." if api_key else "GROQ_API_KEY no
 client = Groq(api_key=api_key)
 
 # ── APP ───────────────────────────────────────────────────
-app = FastAPI()
+app = FastAPI(
+    docs_url=None,
+    redoc_url=None
+)
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 app.add_middleware(
     CORSMiddleware,
