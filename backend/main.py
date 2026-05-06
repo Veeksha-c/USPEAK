@@ -45,8 +45,20 @@ app.include_router(sessions_router)
 
 # ── EMAIL SENDER ──────────────────────────────────────────
 import httpx
+import os
+
+import httpx
+import os
 
 def send_email(to_email: str):
+    print(f"📧 send_email() called for: {to_email}")
+    
+    brevo_key = os.getenv("BREVO_API_KEY")
+    sender_email = os.getenv("GMAIL_USER")
+    
+    print(f"🔑 BREVO_API_KEY loaded: {brevo_key[:10]}..." if brevo_key else "❌ BREVO_API_KEY is None!")
+    print(f"📨 Sender email: {sender_email}" if sender_email else "❌ GMAIL_USER is None!")
+
     html_content = """
 <!DOCTYPE html>
 <html>
@@ -120,21 +132,35 @@ def send_email(to_email: str):
 </body>
 </html>
 """
+
+    payload = {
+        "sender": {
+            "name": "uSpeak",
+            "email": sender_email
+        },
+        "to": [{"email": to_email}],
+        "subject": "Your daily speaking session is waiting 🎙️",
+        "htmlContent": html_content
+    }
+
+    print(f"📤 Sending request to Brevo API...")
+
     response = httpx.post(
-        "https://api.resend.com/emails",
+        "https://api.brevo.com/v3/smtp/email",
         headers={
-            "Authorization": f"Bearer {os.getenv('RESEND_API_KEY')}",
+            "api-key": brevo_key,
             "Content-Type": "application/json"
         },
-        json={
-            "from": "uSpeak <onboarding@resend.dev>",
-            "to": [to_email],
-            "subject": "Your daily speaking session is waiting 🎙️",
-            "html": html_content
-        }
+        json=payload
     )
-    if response.status_code != 200:
-        raise Exception(f"Resend error: {response.status_code} - {response.text}")
+
+    print(f"📬 Brevo response status: {response.status_code}")
+    print(f"📬 Brevo response body: {response.text}")
+
+    if response.status_code not in (200, 201):
+        raise Exception(f"Brevo error: {response.status_code} - {response.text}")
+    
+    print(f"✅ Email successfully sent to {to_email}")
 
 
 # ── SCHEDULER ─────────────────────────────────────────────
