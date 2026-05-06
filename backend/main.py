@@ -103,7 +103,7 @@ def send_email(to_email: str):
               <table cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background-color:#c0392b; border-radius:8px;">
-                    <a href="https://uspeak-six.vercel.app/pages/vibe.html" 
+                    <a href="https://uspeak-six.vercel.app/vibe.html" 
                        style="display:inline-block; padding:14px 32px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none; letter-spacing:0.5px;">
                       Start Today's Session →
                     </a>
