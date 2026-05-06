@@ -345,12 +345,31 @@
 
     <!-- BUTTONS -->
     <div class="btn-row">
-      <a href="./vibe.html" class="btn-secondary">Cancel</a>
-      <button id="saveBtn" class="btn-primary">
-        Save Settings
-        <i class="fa-solid fa-check" style="font-size:0.75rem;"></i>
-      </button>
-    </div>
+  <a href="./vibe.html" class="btn-secondary">Cancel</a>
+  <button id="saveBtn" class="btn-primary">
+    Save Settings
+    <i class="fa-solid fa-check" style="font-size:0.75rem;"></i>
+  </button>
+</div>
+
+<!-- Logout -->
+<div style="margin-top: 1.5rem; text-align: center;">
+  <button id="logoutBtn" style="
+    background: transparent;
+    border: 1px solid #1f1f1f;
+    border-radius: 10px;
+    color: #555;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    padding: 0.6rem 1.5rem;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    width: 100%;
+  ">
+    <i class="fa-solid fa-right-from-bracket" style="margin-right: 6px;"></i>
+    Log Out
+  </button>
+</div>
 
   </div>
 
@@ -504,6 +523,23 @@ const time = `${String(utcHours).padStart(2,"0")}:${String(utcMins).padStart(2,"
         saveBtn.innerHTML = `Save Settings <i class="fa-solid fa-check" style="font-size:0.75rem;"></i>`;
       }
     });
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("sessionLength");
+  window.location.href = "./login.html";
+});
+
+// Hover effect
+const logoutBtn = document.getElementById("logoutBtn");
+logoutBtn.addEventListener("mouseenter", () => {
+  logoutBtn.style.borderColor = "#e63946";
+  logoutBtn.style.color = "#e63946";
+});
+logoutBtn.addEventListener("mouseleave", () => {
+  logoutBtn.style.borderColor = "#1f1f1f";
+  logoutBtn.style.color = "#555";
+});
 
     // ── INIT ──────────────────────────────────────────────
     window.addEventListener("load", loadSettings);
