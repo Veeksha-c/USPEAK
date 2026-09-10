@@ -424,7 +424,7 @@
         saveUserAndRedirect(data);
 
       } catch (err) {
-        showMsg("loginMsg", "Server unreachable. Is the backend running?", "error");
+        showMsg("loginMsg", "Something went wrong. Please try again.", "error");
       } finally {
         btn.disabled = false;
         spinner.classList.remove("visible");
@@ -470,7 +470,7 @@
         setTimeout(() => saveUserAndRedirect(data), 800);
 
       } catch (err) {
-        showMsg("registerMsg", "Server unreachable. Is the backend running?", "error");
+        showMsg("registerMsg", "Something went wrong. Please try again.", "error");
       } finally {
         btn.disabled = false;
         spinner.classList.remove("visible");

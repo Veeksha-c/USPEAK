@@ -280,7 +280,7 @@ Generate the topic now:
 """
 
     completion = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="openai/gpt-oss-20b",
         messages=[
             {"role": "system", "content": "You generate speaking practice topics for beginner speakers."},
             {"role": "user", "content": prompt}
