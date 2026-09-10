@@ -396,13 +396,15 @@ function getSupportedMimeType() {
         const formData = new FormData();
         formData.append("file", blob, "answer.webm");
         const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
+        if (!res.ok) throw new Error(`Transcription failed (${res.status}): ${await res.text()}`);
         const data = await res.json();
+        if (!data.transcript || !data.transcript.trim()) throw new Error("Transcription returned no text.");
         pendingTranscript = data.transcript;
         qaBodyScores.push(bodyScore);
       } catch (err) {
         console.error("Transcription failed:", err);
-        pendingTranscript = "[transcription failed]";
-        qaBodyScores.push(5);
+        pendingTranscript = null;
+        alert("We could not transcribe this answer. Please record it again.");
       } finally {
         transcribeSpinner.classList.remove("visible");
         recordBtn.disabled = false;

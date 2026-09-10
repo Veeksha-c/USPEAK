@@ -136,7 +136,9 @@ const liveIndicators = document.getElementById("liveIndicators");
 const mpLoading      = document.getElementById("mpLoading");
 
 const topic = localStorage.getItem("generatedTopic");
-if (topic) document.getElementById("recordTopic").innerText = topic;
+document.getElementById("recordTopic").innerText = (topic && topic.trim())
+  ? topic
+  : "No topic selected — return to Categories and choose one first.";
 
 // ── GLOBALS ───────────────────────────────────────────
 let mimeType = "";
@@ -334,6 +336,7 @@ function startRecording() {
 
   audioRecorder = new MediaRecorder(audioStream, audioMimeType ? { mimeType: audioMimeType } : {});
   audioRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+  audioRecorder.onstop = handleRecordingStop;
   audioRecorder.start();
 
   isRecording = true;
@@ -362,7 +365,6 @@ function stopRecording() {
   clearInterval(timerInterval);
   clearInterval(sampleInterval);
   audioRecorder.stop();
-  audioRecorder.onstop = handleRecordingStop;
   recordBtn.classList.remove("recording");
   recBadge.classList.remove("visible");
   liveIndicators.classList.remove("visible");
@@ -384,7 +386,9 @@ async function handleRecordingStop() {
     formData.append("file", audioBlob, "recording.webm");
 
     const res = await fetch("https://uspeak-backend.onrender.com/transcribe", { method: "POST", body: formData });
+    if (!res.ok) throw new Error(`Transcription failed (${res.status}): ${await res.text()}`);
     const data = await res.json();
+    if (!data.transcript || !data.transcript.trim()) throw new Error("Transcription returned no text.");
     localStorage.setItem("transcript", data.transcript);
 
     const analysisRes = await fetch("https://uspeak-backend.onrender.com/analyze", {
@@ -395,7 +399,9 @@ async function handleRecordingStop() {
         body_language_score: bodyLanguageScore
       })
     });
+    if (!analysisRes.ok) throw new Error(`Analysis failed (${analysisRes.status}): ${await analysisRes.text()}`);
     const analysis = await analysisRes.json();
+    if (!analysis.scores) throw new Error("Analysis returned no scores.");
     localStorage.setItem("analysis", JSON.stringify(analysis));
 
     const sessions = JSON.parse(localStorage.getItem("sessions")) || [];
@@ -428,11 +434,12 @@ async function handleRecordingStop() {
 
   } catch (err) {
     console.error("Processing failed:", err);
+    alert("We could not transcribe or analyze this recording. Please record again.");
   } finally {
     spinner.classList.remove("visible");
     recordBtn.disabled = false;
     btnLabel.textContent = "Record again";
-    nextBtn.classList.add("visible");
+    if (localStorage.getItem("analysis")) nextBtn.classList.add("visible");
   }
 }
 

@@ -269,6 +269,9 @@ You are a speech coach helping beginner speakers practice.
 Your job is to generate ONE speaking topic based on this instruction:
 {base_instruction}
 
+The selected category is "{vibe}". The topic must be clearly and specifically about that category;
+do not return a generic topic that could fit every category.
+
 Requirements:
 - Single clear question or prompt
 - Answerable from personal experience (no research needed)
@@ -285,7 +288,7 @@ Generate the topic now:
             {"role": "system", "content": "You generate speaking practice topics for beginner speakers."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.9,
+        temperature=0.7,
         max_tokens=80,
     )
 
@@ -310,8 +313,9 @@ async def transcribe_video(file: UploadFile = File(...)):
                 response_format="text"
             )
         os.unlink(file_path)
-        print(f"DEBUG: Transcript is: {transcription}")
-        return {"transcript": transcription}
+        transcript = getattr(transcription, "text", transcription)
+        print(f"DEBUG: Transcript is: {transcript}")
+        return {"transcript": str(transcript)}
     except Exception as e:
         print(f"Direct transcription failed, trying ffmpeg: {e}")
 
@@ -332,8 +336,9 @@ async def transcribe_video(file: UploadFile = File(...)):
 
     os.unlink(file_path)
     os.unlink(audio_path)
-    print(f"DEBUG: Transcript is: {transcription}")
-    return {"transcript": transcription}
+    transcript = getattr(transcription, "text", transcription)
+    print(f"DEBUG: Transcript is: {transcript}")
+    return {"transcript": str(transcript)}
 
 
 class AnalysisRequest(BaseModel):

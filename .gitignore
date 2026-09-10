@@ -3,6 +3,8 @@
 .env.local
 .env.production
 
+utils.txt
+
 # Python
 __pycache__/
 *.py[cod]

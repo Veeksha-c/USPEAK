@@ -306,17 +306,16 @@
           body: JSON.stringify({ vibe })
         });
 
-        if (!res.ok) {
-          console.error("Server error:", res.status, await res.text());
-          return;
-        }
+        if (!res.ok) throw new Error(`Topic generation failed (${res.status}): ${await res.text()}`);
 
         const data = await res.json();
+        if (!data.topic || !data.topic.trim()) throw new Error("Topic generation returned no topic.");
         localStorage.setItem("generatedTopic", data.topic);
         window.location.href = "./rant.html";
 
       } catch (err) {
         console.error("Fetch failed:", err);
+        alert("We could not generate a topic. Please try again.");
         document.getElementById("loadingOverlay").classList.remove("active");
         document.querySelectorAll(".vibe-card").forEach(b => b.disabled = false);
       }
